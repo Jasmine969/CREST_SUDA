@@ -1,0 +1,60 @@
+variable    plug_path getenv LMP_PLUGIN_RELEASE_PATH
+plugin      load ${plug_path}/angle_concave_plugin.so
+dimension	3
+atom_style	hybrid rheo bond
+units		si
+newton	 	on
+boundary	f f f
+
+variable        cur_path getenv MY_WORk
+variable        case_path string ${cur_path}/results/rheo_bond2_angle-F100-krebs-noICC-28w-ringstrain
+# variable case_path string F:\intestine_results\rheo-F100-krebs-kself0_18-deposit-66w
+#  ===================================================
+read_restart ${cur_path}/create_geometry/data/equip-si-bond2_angle-rheo-krebs-28w.restart
+# read_restart F:\intestine_results\equip-si-bond-rheosolid-krebs-kself0_18-66w.restart
+# set parameters ======================
+# geometry params
+variable    dL	        equal 2e-4
+variable    n_yz        equal 63
+variable    r_si        equal 0.002
+variable    r_catheter  equal ${r_si}
+variable    r_torus     equal ${r_catheter}*2
+variable    l_pipe_vert equal 0.004
+variable    l_pipe_hrz  equal 0.002
+variable    l_si        equal 0.04-${dL}
+variable    kB1         equal 0.25 # circumferential
+variable    kB2         equal 0.5 # longitudinal
+variable    kA          equal 1.6e-8 # longitudinal
+variable    theta_eq    equal 180*(${n_yz}-2)/${n_yz}
+variable    wall_damp   equal 1e-4
+variable    cut	        equal 1.6*${dL}
+variable    skin        equal 0.3*${cut}
+group       wall        type 2
+
+# forces ==============================
+# set pairs and bonds
+pair_style  zero ${cut}
+pair_coeff  * *
+
+special_bonds      lj 0 1 1 coul 0 1 1
+bond_style         bpm/spring break no smooth no
+bond_coeff         1 ${kB1} 1.0 ${wall_damp}
+bond_coeff         2 ${kB2} 1.0 ${wall_damp}
+
+angle_style harmonic/concave
+angle_coeff 1 ${kA} ${theta_eq} x ${n_yz}
+
+# balance ========================
+comm_style tiled
+fix        bl all balance 10000 1.01 rcb
+# output =================================
+# global output
+thermo	      200
+thermo_style	custom step time cpu atoms press
+thermo_modify	norm no warn 10
+
+dump 1 wall custom 5000 ${case_path}/Fbond.dump id type x y z fy fz
+# RUN ==========================
+neighbor    ${skin} bin
+rerun       ${case_path}/0to1250000.dump dump x y z vx vy vz trim yes
+# rerun       ${case_path}/equip_si_bond-0.0002-kB0.5-damp0.0001-kself0.006.dump dump x y z vx vy vz trim yes

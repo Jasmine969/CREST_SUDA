@@ -1,0 +1,42 @@
+case_name: rheo_bond2_angle-F100-krebs-noICC-28w-ringstrain
+# kself 2e-3
+# w_boundary 0.25 0.4
+# EJPalpha=IJPalpha=90
+# EJP0.3uS IJP0.9uS
+# Factive to the center
+# (DSTND-0.07)/0.002)
+# improve NO and cGMP mechanism
+# w_cGMP=1.8
+# gAH0=0.08uS, Toff=0.5us
+# mu approximately pure water at 37degC
+# run
+n_step: 1250000
+go_on_from_step: 0
+restart_file: equip-si-bond2_angle-rheo-krebs-28w.restart
+
+# I/O
+save_interval: 50000
+dmp_interval: 5000
+
+# couple
+force_factor: 1.0e-4
+N_callback_lmp: 50
+
+# mechanics params
+dt_lmp: 2.0e-5
+soft: 6.0e-10
+mu: 6.947e-4 # viscosity
+k1_self: 0.0
+k2_self: 18
+kA: 1.6e-8
+
+# network params
+n_sense_each: 2
+ring_sense_start: 9
+V_half_EJP: -45
+V_half_IJP: -60
+w_boundary1: 1
+w_boundary2: 1
+
+# display
+mylog_interval: 250

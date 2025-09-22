@@ -1,0 +1,184 @@
+# variable        plug_path getenv LMP_PLUGIN_RELEASE_PATH
+# plugin load     ${plug_path}/rhonorm_plugin.so ${plug_path}/setrho_plugin.so
+
+# dimension	3
+# atom_style	hybrid rheo bond
+# units		si
+# newton	 	on
+# boundary	f f f
+
+# variable          cur_path getenv MY_WORK
+# #  ===================================================
+# read_restart ${cur_path}/create_geometry/data/equip-si-bond_angle-rheo-resetrho-soft4e-10-krebs-kself0.006-30w.restart
+
+# set parameters ======================
+# geometry params
+variable    dL	        equal 2e-4
+variable    n_yz        equal 63
+variable    n_ring      equal 200
+variable    n_inlet     equal 3870
+variable    r_si        equal 0.002
+variable    r_catheter  equal ${r_si}
+variable    r_torus     equal ${r_catheter}*2
+variable    l_pipe_vert equal 0.004
+variable    l_pipe_hrz  equal 0.002
+variable    l_si        equal 0.04-${dL}
+ # surface area of each wall particle
+variable    A0          equal 2*PI*${r_si}*${l_si}/(${n_yz}*${n_ring})
+# simulation params
+variable    cut	        equal 1.6*${dL}
+variable    skin        equal 0.3*${cut}
+variable    c	        equal 5
+variable    rho	        equal 993
+variable    Ninflow     equal 10
+# variable    Dt          equal 2e-5
+# variable    mu          equal 1e-3 # dynamic viscosity
+variable    zeta        equal 0.5  # artificial viscosity
+variable    kB1         equal 0.25 # circumferential
+variable    kB2         equal 0.5 # longitudinal
+variable    theta_eq    equal 180*(${n_yz}-2)/${n_yz}
+variable    rc_solid    equal ${dL}*1.0
+variable    wall_damp   equal 1e-4
+# variable    k_self      equal 6e-3
+
+group       equipment   type 1
+group       wall        type 2
+group       fluid       type 3
+
+set         group equipment rheo/status 1
+set         group wall rheo/status 1
+set         group fluid rheo/status 0
+
+# region specification ================
+region      inlet block EDGE 0 EDGE EDGE EDGE EDGE  # the whole inlet
+region      outlet_del cylinder &
+            z $(v_l_si+v_r_torus+v_l_pipe_hrz) 0 ${r_catheter} $(v_r_torus+v_l_pipe_vert*0.885) EDGE
+region      outlet block ${l_si} $(v_l_si+v_l_pipe_hrz+v_r_torus+v_r_si) &
+            -${r_si} ${r_si} -${r_si} $(v_r_torus+v_l_pipe_vert) # the whole outlet
+region      lumen cylinder x 0 0 ${r_si} 0 ${l_si}
+region      inlet_del cylinder &
+            z $(-v_r_torus-v_l_pipe_hrz) 0 ${r_catheter} $(v_r_torus+v_l_pipe_vert*0.885) EDGE
+region      simulation_box block $(xlo) $(xhi) $(ylo) $(yhi) $(zlo) $(zhi)
+# region      fixedrho block $(-v_l_pipe_hrz) $(v_l_si+v_l_pipe_hrz) EDGE EDGE EDGE EDGE side out
+region      updaterho block $(-v_l_pipe_hrz) $(v_l_si+v_l_pipe_hrz) EDGE EDGE EDGE EDGE
+region      drop_mol_in cylinder &
+            z $(-v_r_torus-v_l_pipe_hrz) 0 1e-20 $(v_r_torus+v_l_pipe_vert*0.7) $(v_r_torus+v_l_pipe_vert*0.88)
+region      drop_mol_out cylinder &
+            z $(v_l_si+v_r_torus+v_l_pipe_hrz) 0 1e-20 $(v_r_torus+v_l_pipe_vert*0.7) $(v_r_torus+v_l_pipe_vert*0.88)
+# inflow bc
+# fully-developed inflow
+molecule    mymol  ${cur_path}/create_geometry/data/layer0.mol ${cur_path}/create_geometry/data/layer1.mol &
+                   ${cur_path}/create_geometry/data/layer2.mol ${cur_path}/create_geometry/data/layer3.mol &
+                   ${cur_path}/create_geometry/data/layer4.mol ${cur_path}/create_geometry/data/layer5.mol &
+                   ${cur_path}/create_geometry/data/layer6.mol ${cur_path}/create_geometry/data/layer7.mol &
+                   ${cur_path}/create_geometry/data/layer8.mol ${cur_path}/create_geometry/data/layer9.mol
+fix         in_depos fluid rheo/deposit 130000 0 ${Ninflow} 623 region drop_mol_in near ${dL} &
+            vx 0 0 vy 0 0 vz 0 0 rho ${rho} status 0 mol mymol orient 0 0 1 &
+            molfrac 0.13986014 0.13846154 0.13426573 0.12727273 0.11748252 0.1048951 &
+                    0.08951049 0.07132867 0.05034965 0.02657343
+fix         out_depos fluid rheo/deposit 130000 0 ${Ninflow} 623 region drop_mol_out near ${dL} &
+            vx 0 0 vy 0 0 vz 0 0 rho ${rho} status 0 mol mymol orient 0 0 1 &
+            molfrac 0.13986014 0.13846154 0.13426573 0.12727273 0.11748252 0.1048951 &
+                    0.08951049 0.07132867 0.05034965 0.02657343
+# outflow bc (evaporate)
+fix         in_del fluid evaporate 100 10000 inlet_del 2332
+fix         out_del fluid evaporate 100 10000 outlet_del 2332
+# forces ==============================
+# set pairs and bonds
+pair_style  hybrid/overlay sph/rhosum/norm 2 &
+                           rheo ${cut} artificial/visc ${zeta} &
+                           soft ${dL} &
+                        #    rheo/solid
+pair_coeff  * * rheo
+# pair_coeff  1*2 2 rheo/solid ${kB2} ${rc_solid} ${wall_damp}
+pair_coeff  3 3 sph/rhosum/norm ${cut}
+pair_coeff  1*2 3 soft ${soft}
+
+special_bonds      lj 0 1 1 coul 0 1 1
+bond_style         bpm/spring break no smooth no
+bond_coeff         1 ${kB1} 1.0 ${wall_damp}
+bond_coeff         2 ${kB2} 1.0 ${wall_damp}
+
+angle_style harmonic/concave
+angle_coeff 1 ${kA} ${theta_eq} x ${n_yz}
+
+fix     rheo all rheo ${cut} quintic 0 density ${rho} ${rho} ${rho} speed/sound $c $c $c &
+        fixed/vel 1 0 0
+        # fixed/rho/region fixedrho
+# fix     visc all rheo/viscosity * constant ${mu}
+fix     press all rheo/pressure * tait/water
+# set the force of fluid
+fix     G_fluid fluid gravity -9.81 vector 0 0 1
+fix     G_wall wall gravity -9.81 vector 0 0 1
+# self-spring
+fix     y0 wall store/state 0 y
+fix     z0 wall store/state 0 z
+# nonlinear restoring force
+variable  Dy atom (f_y0-y)*gmask(wall)
+variable  Dz atom (f_z0-z)*gmask(wall)
+variable  FRy atom (2*(v_Dy>0)-1)*((abs(v_Dy)*${k1_self}+abs(v_Dy)^2*${k2_self}))
+variable  FRz atom (2*(v_Dz>0)-1)*((abs(v_Dz)*${k1_self}+abs(v_Dz)^2*${k2_self}))
+fix       FR wall addforce 0 v_FRy v_FRz
+# bath
+variable  ringID atom ceil((id-v_n_inlet)/v_n_yz)
+compute   ringID wall chunk/atom v_ringID nchunk once ids once
+compute   yz wall property/atom y z
+fix       yzAvg wall ave/chunk/preforce 1 1 1 ringID c_yz[1] c_yz[2]
+compute   yzAvg wall chunk/spread/atom ringID f_yzAvg[2] f_yzAvg[3]
+variable  y_yc  atom y-c_yzAvg[1]
+variable  z_zc  atom z-c_yzAvg[2]
+variable  rc    atom sqrt(v_y_yc^2+v_z_zc^2)
+variable  Fbath atom ${A0}*${rho}*9.81*(${r_torus}-z)*gmask(wall)
+variable  Fy_bath atom -v_Fbath*v_y_yc/(v_rc+1e-30)
+variable  Fz_bath atom -v_Fbath*v_z_zc/(v_rc+1e-30)
+fix       F_bath wall addforce 0 v_Fy_bath v_Fz_bath
+# zero xforce of wall
+fix       xforce0  wall setforce 0. NULL NULL
+# fix the pressure of the vert pipe and torus
+# variable  p0 atom ${rho}*9.81*(${r_torus}+${l_pipe_vert}*0.9-z)
+# variable  rho0 atom (7*v_p0/($c^2*${rho})+1)^(1/7)*${rho}
+# fix       fixedrho fluid setrho v_rho0 region fixedrho
+# active force
+fix       F_active wall external pf/callback ${Ncallback} 1
+# balance ========================
+comm_style tiled
+fix       bl all balance 10000 1.01 rcb
+# Diagnostics ====================
+# density and pressure
+compute     rho all rheo/property/atom rho
+compute     p all rheo/property/atom pressure
+compute     rhomin fluid reduce/region updaterho min c_rho
+compute     rhomax fluid reduce/region updaterho max c_rho
+compute     fsph all rheo/property/atom fsph/y fsph/z
+compute     fbond all rheo/property/atom fbpm/y fbpm/z
+compute     visc all rheo/property/atom viscosity
+
+# inflow and outflow rates
+variable    n_inflow    equal f_in_del+count(fluid,inlet)-f_in_depos
+variable    n_outflow   equal f_out_del+count(fluid,outlet)-f_out_depos
+
+# wall strain
+variable    strain atom (v_rc-v_r_si)/v_r_si*gmask(wall)
+fix         strainAvg wall ave/chunk/preforce 1 ${Ncallback} ${Ncallback} ringID v_strain
+compute     strainAvg wall chunk/spread/atom ringID f_strainAvg[2]
+compute     strainMin wall reduce  min c_strainAvg
+compute     strainMax wall reduce  max c_strainAvg
+# output =================================
+# global output
+thermo	      20
+thermo_style	custom step time press atoms c_rhomin c_rhomax f_in_del f_out_del f_in_depos f_out_depos
+thermo_modify	norm no
+
+# dump per-atom output (moved to neuron_fluid_get_dump.py)
+
+# dump	my_dump all custom ${dmp_interval} &
+#         ${case_path}/${go_on_from_step}to${end_step}.dump &
+#         id type x y z vx vy vz fx fy fz mass c_p c_rho c_strainAvg c_ringID &
+#         v_Fy_bath v_Fz_bath v_FRy v_FRz f_F_active[2] f_F_active[3] c_fsph[1] c_fsph[2]
+# dump_modify my_dump format float %.6e
+
+# RUN ==========================
+timestep    ${Dt}
+neighbor    ${skin} bin
+restart     ${N_restart} ${case_path}/restart/*.restart
+log         ${case_path}/log_${go_on_from_step}to${end_step}.lammps

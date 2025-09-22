@@ -1,0 +1,11 @@
+# dir
+__pycache__
+.idea/
+# file
+config.ini
+*.dump
+*.lammpstrj
+*.store
+*.ovito
+*.tar
+strain_tension*.npz

@@ -1,0 +1,12 @@
+variable    plug_path getenv LMP_PLUGIN_RELEASE_PATH
+plugin load     ${plug_path}/rhonorm_plugin.so ${plug_path}/inflow_plugin.so &
+                ${plug_path}/setrho_plugin.so ${plug_path}/avechunk_plugin.so &
+                ${plug_path}/angle_concave_plugin.so                
+
+dimension	3
+atom_style	hybrid bond angle rheo
+units		si
+newton	 	on
+boundary	f f f
+
+variable    cur_path getenv MY_WORK
