@@ -2,6 +2,7 @@ import numpy as np
 
 
 def get_n_per_ring(r, d, phi_ring=2*np.pi):
+    """"""
     n = np.ones_like(r).flatten()
     r = np.asarray(r).flatten()
     n[r != 0] = phi_ring / np.arccos(1 - 0.5 * (d / r[r != 0]) ** 2)
