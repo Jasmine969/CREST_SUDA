@@ -18,7 +18,7 @@ from utils.utils import format_time
 comm = MPI.COMM_WORLD
 me = comm.Get_rank()
 
-case_name = 'rheo_bond2_angle-F100-krebs-noICC-28w-ringstrain'
+case_name = 'demo'
 n_yz = 63
 n_inlet = 3870
 n_wall = 12600
@@ -157,7 +157,7 @@ if dmp_interval:
     lmp.commands_string("""
     dump	my_dump all custom ${dmp_interval} &
             ${case_path}/${go_on_from_step}to${end_step}.dump &
-            id type x y z vx vy vz fx fy fz mass c_p c_rho c_strainAvg c_ringID &
+            id type x y z vx vy vz fx fy fz mass c_p c_rho c_strainAvg v_ringID_paper &
             v_Fy_bath v_Fz_bath v_FRy v_FRz f_F_active[2] f_F_active[3] c_fsph[1] c_fsph[2]
     dump_modify my_dump format float %.6e
     """)
@@ -240,17 +240,17 @@ def callback(caller, step, nlocal, tag, x, fext):
             step_info = (f"Step (curr -- total): "
                          f"{step_local}/{n_step} -- {step}/{end_step}"
                          f"\n{'=' * 30}")
-            FP_list = list(range(0, n_sense * 2, 2))
-            FP_head = '\t\t'.join(str(i) for i in FP_list)
-            FP_display = '\t'.join(f'{i:<4.1f}' for i in f_mag[FP_list] * 1e7)
+            tension_id = list(range(0, n_sense * 2, 2))
+            tension_head = '\t\t'.join(str(i) for i in tension_id)
+            tension_display = '\t'.join(f'{i:<4.1f}' for i in f_mag[tension_id] * 1e7)
             vSMC = np.repeat(net['SMC'].v / mV, n_muscle_each)
-            vSMC_display = '\t'.join(f'{i:<5.1f}' for i in vSMC[FP_list])
+            vSMC_display = '\t'.join(f'{i:<5.1f}' for i in vSMC[tension_id])
             value_info += (
-                f"{FP_head}\n"
+                f"{tension_head}\n"
                 f"vSMC_max/mV\t\t{(net['SMC'].v / mV).argmax()}\t{(net['SMC'].v / mV).max():.1f}\n"
                 f"{vSMC_display}\n"
-                f"FP_max*1e7\t\t{f_mag.argmax()}\t{f_mag.max() * 1e7:.1f}\n"
-                f"{FP_display}\n"
+                f"tension_max*1e7\t\t{f_mag.argmax()}\t{f_mag.max() * 1e7:.1f}\n"
+                f"{tension_display}\n"
             )
             interact_comp_time += time() - t0_step - net_comp_time_step
             elapsed = time() - t0

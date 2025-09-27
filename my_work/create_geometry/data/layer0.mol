@@ -1,0 +1,12 @@
+# layer 0, radius=0.0
+# header
+1 atoms
+
+# body
+Coords
+#ID x y z
+1   0.0 0.0 0.0
+
+Types
+#ID type
+1   3  

@@ -6,6 +6,9 @@ config.ini
 *.dump
 *.lammpstrj
 *.store
+/my_work/results/*/*
+*.restart
+*.data
 *.ovito
 *.tar
-strain_tension*.npz
+*.pkl

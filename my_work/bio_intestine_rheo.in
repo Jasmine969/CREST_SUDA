@@ -121,6 +121,7 @@ fix       FR wall addforce 0 v_FRy v_FRz
 # bath
 variable  ringID atom ceil((id-v_n_inlet)/v_n_yz)
 compute   ringID wall chunk/atom v_ringID nchunk once ids once
+variable  ringID_paper atom c_ringID-1
 compute   yz wall property/atom y z
 fix       yzAvg wall ave/chunk/preforce 1 1 1 ringID c_yz[1] c_yz[2]
 compute   yzAvg wall chunk/spread/atom ringID f_yzAvg[2] f_yzAvg[3]

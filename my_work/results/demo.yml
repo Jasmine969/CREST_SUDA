@@ -1,4 +1,4 @@
-case_name: rheo_bond2_angle-F100-krebs-noICC-28w-ringstrain
+case_name: demo
 # kself 2e-3
 # w_boundary 0.25 0.4
 # EJPalpha=IJPalpha=90
