@@ -37,7 +37,6 @@ variable    zeta        equal 0.5  # artificial viscosity
 variable    kB1         equal 0.25 # circumferential
 variable    kB2         equal 0.5 # longitudinal
 variable    theta_eq    equal 180*(${n_yz}-2)/${n_yz}
-variable    rc_solid    equal ${dL}*1.0
 variable    wall_damp   equal 1e-4
 # variable    k_self      equal 6e-3
 
