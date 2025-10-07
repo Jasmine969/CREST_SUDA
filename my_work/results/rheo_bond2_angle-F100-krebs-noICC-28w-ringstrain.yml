@@ -17,13 +17,17 @@ N_callback_lmp: 50
 dt_lmp: 2.0e-5
 soft: 6.0e-10
 mu: 6.947e-4 # viscosity
+kB_circ: 0.25
+kB_long: 0.5
 k1_self: 0.0
 k2_self: 18
 kA: 1.6e-8
+balance: yes
 
 # network params
 n_sense_each: 2
 ring_sense_start: 9
+JPalpha: 90
 V_half_EJP: -45
 V_half_IJP: -60
 w_boundary1: 1
