@@ -1,8 +1,22 @@
+"""
+Contains functions for optimizing brian2 models
+"""
 from brian2modelfitting import MSEMetric, FeatureMetric, calc_eFEL
 from brian2 import *
 import warnings
 import efel
 from itertools import repeat
+
+
+class MSENaNMetric(MSEMetric):
+    def __init__(self, nan_replace, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.nan_replace = nan_replace
+
+    def get_errors(self, features):
+        errors = features.mean(axis=1)
+        errors[isnan(errors)] = self.nan_replace
+        return errors
 
 
 class CaLMetric(MSEMetric):
@@ -92,3 +106,70 @@ def err_range(y_pred, ind, ymin, ymax, y_base, nan_replace, name):
     if y_pred > y_max:
         return (y_pred - y_max) / y_base
     return array([0])
+
+
+class FeatureRangeMetric(FeatureMetric):
+    """
+    The features should fall inside the specified range
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not isinstance(self.combine, dict):
+            self.comb_dct = dict()
+            for k in self.feat_list:
+                self.comb_dct[k] = self.combine
+            self.combine = self.comb_dct
+
+    def feat_to_err(self, d1, ind):
+        d = {}
+        for key in d1.keys():
+            x = d1[key]
+            d[key] = self.combine[key](x, ind)
+        return d
+
+    def check_values(self, feat_list):
+        """Removes all the None values and checks for array features"""
+        for r in feat_list:
+            for k, v in r.items():
+                if r[k] is not None and len(r[k]) > 1:
+                    r[k] = median(r[k], keepdims=True)
+
+    def get_features(self, traces, output, dt):
+        n_samples, n_traces, _ = traces.shape
+        if len(self.stim_times) != n_traces:
+            if len(self.stim_times) == 1:
+                self.stim_times = list(repeat(self.stim_times[0], n_traces))
+            else:
+                raise ValueError("Specify the stim_times variable of appropiate "
+                                 "size (same as number of traces or 1).")
+
+        out_feat = calc_eFEL(output, self.stim_times, self.feat_list, dt)
+        self.check_values(out_feat)
+
+        features = []
+        for one_sample in traces:
+            sample_feat = calc_eFEL(one_sample, self.stim_times,
+                                    self.feat_list, dt)
+            self.check_values(sample_feat)
+            sample_features = []
+            for ind, one_trace_feat in enumerate(sample_feat):
+                sample_features.append(self.feat_to_err(one_trace_feat,
+                                                        ind))
+            # Convert the list of dictionaries to a dictionary of lists
+            sample_features_dict = {}
+            for feature_dict in sample_features:
+                for key, value in feature_dict.items():
+                    if key not in sample_features_dict:
+                        sample_features_dict[key] = []
+                    if len(value) != 1:
+                        raise TypeError('Feature "{}" returned more than a '
+                                        'single value, such features are not '
+                                        'supported yet.'.format(key))
+                    sample_features_dict[key].append(value[0])
+
+            # Convert lists into array
+            for key, l in sample_features_dict.items():
+                sample_features_dict[key] = array(l)
+            features.append(sample_features_dict)
+
+        return features

@@ -24,6 +24,7 @@
 #include "neighbor.h"
 #include "update.h"
 #include <vector>
+#include "region.h"
 
 using namespace LAMMPS_NS;
 
@@ -41,6 +42,8 @@ PairSPHRhoSumNorm::PairSPHRhoSumNorm(LAMMPS *lmp) : Pair(lmp)
 
   comm_forward = 1;
   first = 1;
+  iregion = nullptr;
+  idregion = nullptr;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -51,6 +54,8 @@ PairSPHRhoSumNorm::~PairSPHRhoSumNorm()
     memory->destroy(setflag);
     memory->destroy(cutsq);
     memory->destroy(cut);
+    memory->destroy(fixrho_type);
+    delete [] idregion;
   }
 }
 
@@ -99,7 +104,9 @@ void PairSPHRhoSumNorm::compute(int eflag, int vflag)
       // initialize density with self-contribution,
       for (ii = 0; ii < inum; ii++) {
         i = ilist[ii];
+        if (iregion && iregion->match(x[i][0], x[i][1], x[i][2])) continue;
         itype = type[i];
+        if (fixrho_type[itype]) continue;
         imass = mass[itype];
 
         h = cut[itype][itype];
@@ -157,7 +164,9 @@ void PairSPHRhoSumNorm::compute(int eflag, int vflag)
       // jsm
       for (ii = 0; ii < inum; ii++) {
         i = ilist[ii];
+        if (iregion && iregion->match(x[i][0], x[i][1], x[i][2])) continue;
         itype = type[i];
+        if (fixrho_type[itype]) continue;
         if (coord[ii] < zmin)
           rho[i] = rho0;
         else
@@ -186,6 +195,8 @@ void PairSPHRhoSumNorm::allocate()
 
   memory->create(cutsq, n + 1, n + 1, "pair:cutsq");
   memory->create(cut, n + 1, n + 1, "pair:cut");
+  memory->create(fixrho_type, n + 1, "rheo:fixrho_type");
+  for (int i = 1; i <= n; i++) fixrho_type[i] = 0; // default: rho of all types should be updated 
 }
 
 /* ----------------------------------------------------------------------
@@ -194,10 +205,21 @@ void PairSPHRhoSumNorm::allocate()
 
 void PairSPHRhoSumNorm::settings(int narg, char **arg)
 {
-  if (narg != 1)
+  if (narg < 1)
     error->all(FLERR, Error::NOLASTLINE,
         "Illegal number of arguments for pair_style sph/rhosum/norm");
   nstep = utils::inumeric(FLERR,arg[0],false,lmp);
+  int iarg = 1;
+  while (iarg < narg) {
+    if (strcmp(arg[iarg], "fixed/rho/region") == 0) {
+      if (iarg+2 > narg) error->all(FLERR,"Illegal pair_style sph/rhosum/norm command");
+      iregion = domain->get_region_by_id(arg[iarg+1]);
+      if (!iregion) error->all(FLERR,"Region ID {} for pair_style sph/rhosum/norm does not exist",arg[iarg+1]);
+      delete[] idregion;
+      idregion = utils::strdup(arg[iarg+1]);
+      iarg += 2;
+    }
+  }
 }
 
 /* ----------------------------------------------------------------------
@@ -225,6 +247,11 @@ void PairSPHRhoSumNorm::coeff(int narg, char **arg)
       zmin = utils::numeric(FLERR, arg[iarg + 1], false, lmp);
       rho0 = utils::numeric(FLERR, arg[iarg + 2], false, lmp);
       iarg += 2;
+    } else if (strcmp(arg[iarg], "fixed/rho/type") == 0) {
+      int n = atom->ntypes;
+      if (iarg + n >= narg) utils::missing_cmd_args(FLERR, "pair sph/rhosum/norm fixed/rho/type", error);
+      for (int i = 1; i <= n; i++) fixrho_type[i] = utils::numeric(FLERR, arg[iarg + i], false, lmp);
+      iarg += n;
     } else
       error->all(FLERR, "Unknown pair sph/rhosum/norm keyword: {}", arg[iarg]);
     iarg += 1;

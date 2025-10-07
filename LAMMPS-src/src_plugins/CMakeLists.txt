@@ -83,8 +83,8 @@ endif()
 add_library(rhonorm_plugin MODULE SPH/rhonorm_plugin.cpp SPH/pair_sph_rhosum_norm.cpp SPH/pair_sph_rho_mls.cpp)
 target_link_libraries(rhonorm_plugin PRIVATE lammps)
 
-# add_library(anharmonic_plugin MODULE BPM/anharmonic_plugin.cpp BPM/bond_bpm_spring_anharmonic.cpp)
-# target_link_libraries(anharmonic_plugin PRIVATE lammps)
+add_library(anharmonic_plugin MODULE BPM/anharmonic_plugin.cpp BPM/bond_bpm_spring_anharmonic.cpp)
+target_link_libraries(anharmonic_plugin PRIVATE lammps)
 
 add_library(angle_concave_plugin MODULE MOLECULE/angle_concave_plugin.cpp MOLECULE/angle_harmonic_concave.cpp)
 target_link_libraries(angle_concave_plugin PRIVATE lammps)
@@ -92,28 +92,31 @@ target_link_libraries(angle_concave_plugin PRIVATE lammps)
 add_library(inflow_plugin MODULE RHEO/inflow_plugin.cpp RHEO/fix_rheo_deposit.cpp)
 target_link_libraries(inflow_plugin PRIVATE lammps)
 
+add_library(setrho_plugin MODULE setrho_plugin.cpp fix_setrho.cpp)
+target_link_libraries(setrho_plugin PRIVATE lammps)
+
 add_library(avechunk_plugin MODULE avechunk_plugin.cpp fix_ave_chunk_preforce.cpp)
 target_link_libraries(avechunk_plugin PRIVATE lammps)
 
-set_target_properties(rhonorm_plugin angle_concave_plugin inflow_plugin avechunk_plugin
+set_target_properties(rhonorm_plugin anharmonic_plugin angle_concave_plugin inflow_plugin setrho_plugin avechunk_plugin
  PROPERTIES PREFIX "" SUFFIX ".so")
 
 # MacOS seems to need this
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-  set_target_properties(rhonorm_plugin angle_concave_plugin inflow_plugin avechunk_plugin
+  set_target_properties(rhonorm_plugin anharmonic_plugin angle_concave_plugin inflow_plugin setrho_plugin avechunk_plugin
     PROPERTIES LINK_FLAGS "-Wl,-undefined,dynamic_lookup")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 # tell CMake to export all symbols to a .dll on Windows with special case for MinGW cross-compilers
-  set_target_properties(rhonorm_plugin angle_concave_plugin inflow_plugin avechunk_plugin
+  set_target_properties(rhonorm_plugin anharmonic_plugin angle_concave_plugin inflow_plugin setrho_plugin avechunk_plugin
     PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
   if(CMAKE_CROSSCOMPILING)
-    set_target_properties(rhonorm_plugin angle_concave_plugin inflow_plugin avechunk_plugin
+    set_target_properties(rhonorm_plugin anharmonic_plugin angle_concave_plugin inflow_plugin setrho_plugin avechunk_plugin
       PROPERTIES LINK_FLAGS "-Wl,--export-all-symbols")
   endif()
 else()
-  set_target_properties(rhonorm_plugin angle_concave_plugin inflow_plugin avechunk_plugin PROPERTIES
+  set_target_properties(rhonorm_plugin anharmonic_plugin angle_concave_plugin inflow_plugin setrho_plugin avechunk_plugin PROPERTIES
     LINK_FLAGS "-rdynamic")
 endif()
 
 add_custom_target(plugins ALL ${CMAKE_COMMAND} -E echo "Building Plugins"
-  DEPENDS rhonorm_plugin angle_concave_plugin inflow_plugin avechunk_plugin)
+  DEPENDS rhonorm_plugin anharmonic_plugin angle_concave_plugin inflow_plugin setrho_plugin avechunk_plugin)

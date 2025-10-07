@@ -1,7 +1,6 @@
 variable        plug_path getenv LMP_PLUGIN_RELEASE_PATH
 plugin load     ${plug_path}/rhonorm_plugin.so ${plug_path}/inflow_plugin.so &
-                ${plug_path}/setrho_plugin.so ${plug_path}/avechunk_plugin.so &
-                ${plug_path}/angle_concave_plugin.so
+                ${plug_path}/avechunk_plugin.so ${plug_path}/angle_concave_plugin.so
 
 dimension	3
 atom_style	hybrid bond angle rheo
@@ -10,14 +9,16 @@ newton	 	on
 boundary	f f f
 
 variable        cur_path getenv MY_WORK
-# read_restart ${cur_path}/create_geometry/data/equip_si-rheo_bond2_angle_dl2.0e-04-semifilled.restart
-# read_restart ${cur_path}/create_geometry/data/equip-si-bond2-rheo-krebs-kself0_18-40w.restart
-read_restart ${cur_path}/create_geometry/data/equip-si-bond2_angle-rheo-chymepower-30w.restart
+variable        data_path string ${cur_path}/create_geometry/data
+# read_restart ${data_path}/equip_si-rheo_bond2_angle_dl2.0e-04-semifilled.restart
+# read_restart ${data_path}/equip-si-bond2_angle-rheo-krebs-4w.restart
+read_restart ${data_path}/equip-si-bond2_angle-rheo-krebs-12w.restart
+# read_restart ${data_path}/equip-si-bond2_angle-rheo-krebs-28w-22Jul.restart
 
-# reset_timestep 240000
-# variable  yDisplace atomfile ${cur_path}/create_geometry/data/ydisplace_smooth.csv
-# variable  zDisplace atomfile ${cur_path}/create_geometry/data/zdisplace_smooth.csv
-# variable  vzero atomfile ${cur_path}/create_geometry/data/vzero_smooth.csv
+# reset_timestep 40000
+# variable  yDisplace atomfile ${data_path}/ydisplace_smooth.csv
+# variable  zDisplace atomfile ${data_path}/zdisplace_smooth.csv
+# variable  vzero atomfile ${data_path}/vzero_smooth.csv
 # fix smooth wall move variable NULL v_yDisplace v_zDisplace NULL v_vzero v_vzero
 # set parameters ======================
 # geometry params
@@ -39,13 +40,13 @@ variable    skin        equal 0.3*${cut}
 variable    c	        equal 5
 variable    rho	        equal 993
 variable    Dt          equal 2e-5
-# variable    mu          equal 6.947e-4 # krebs dynamic viscosity
+variable    mu          equal 6.947e-4 # krebs dynamic viscosity
 # variable    mu          equal 8.93e-3 # chyme dynamic viscosity
 # power-law viscosity params
-variable    mu_max      equal 5e-2
-variable    mu_min      equal 5e-4
-variable    K_power     equal 0.105
-variable    n_power     equal 0.366
+# variable    mu_max      equal 5e-2
+# variable    mu_min      equal 5e-4
+# variable    K_power     equal 0.105
+# variable    n_power     equal 0.366
 
 variable    zeta        equal 0.5  # artificial viscosity
 variable    kB1         equal 0.25 # circumferential
@@ -53,7 +54,6 @@ variable    kB2         equal 0.5 # longitudinal
 variable    wall_damp   equal 1e-4
 variable    kA          equal 1.6e-8
 variable    theta_eq    equal 180*(${n_yz}-2)/${n_yz}
-variable    rc_solid    equal ${dL}*1.2
 variable    k1_self      equal 0
 variable    k2_self      equal 18
 variable    Ninflow     equal 10
@@ -63,49 +63,31 @@ variable    soft        equal 6e-10
 group       equipment   type 1
 group       wall        type 2
 group       fluid       type 3
-# fluid mass is based on 1000 kg/m3 in restart file
-mass    3 $(8.776755094503287e-09*v_rho/1000)
-# try to obtain proper pressure
-# set group all rheo/rho ${rho}
 
 set         group equipment rheo/status 1
 set         group wall rheo/status 1
 set         group fluid rheo/status 0
 
 # region specification ================
-region      pipe_in_vert cylinder &
-            z $(-v_r_torus-v_l_pipe_hrz) 0 $(v_r_catheter) ${r_torus} EDGE
-region      pipe_out_vert cylinder &
-            z $(v_l_si+v_r_torus+v_l_pipe_hrz) 0 $(v_r_catheter) ${r_torus} EDGE
-region      pipe_vert union 2 pipe_in_vert pipe_out_vert
 region      drop_mol_in cylinder &
             z $(-v_r_torus-v_l_pipe_hrz) 0 1e-20 $(v_r_torus+v_l_pipe_vert*0.1) $(v_r_torus+v_l_pipe_vert*0.88)
 region      drop_mol_out cylinder &
             z $(v_l_si+v_r_torus+v_l_pipe_hrz) 0 1e-20 $(v_r_torus+v_l_pipe_vert*0.1) $(v_r_torus+v_l_pipe_vert*0.88)
-
-region      inlet block EDGE 0 EDGE EDGE EDGE EDGE  # the whole inlet
 region      outlet_del cylinder &
             z $(v_l_si+v_r_torus+v_l_pipe_hrz) 0 ${r_catheter} $(v_r_torus+v_l_pipe_vert*0.885) EDGE
-region      outlet block ${l_si} $(v_l_si+v_l_pipe_hrz+v_r_torus+v_r_si) &
-            -${r_si} ${r_si} -${r_si} $(v_r_torus+v_l_pipe_vert) # the whole outlet
-region      lumen cylinder x 0 0 ${r_si} 0 ${l_si}
 region      inlet_del cylinder &
             z $(-v_r_torus-v_l_pipe_hrz) 0 ${r_catheter} $(v_r_torus+v_l_pipe_vert*0.885) EDGE
 region      simulation_box block $(xlo) $(xhi) $(ylo) $(yhi) $(zlo) $(zhi)
-# region      fixedrho block $(-v_l_pipe_hrz) $(v_l_si+v_l_pipe_hrz) EDGE EDGE EDGE EDGE side out
-region      updaterho block $(-v_l_pipe_hrz) $(v_l_si+v_l_pipe_hrz) EDGE EDGE EDGE EDGE
 # forces ==============================
 # set pairs and bonds
 pair_style  hybrid/overlay sph/rhosum/norm 2 &
                            rheo ${cut} artificial/visc ${zeta} &
                            soft ${dL}
-                        #    rheo/solid
 pair_coeff  * * rheo
-# pair_coeff  1*2 2 rheo/solid ${kB} ${rc_solid} ${wall_damp}
-pair_coeff  3 3 sph/rhosum/norm ${cut}
+pair_coeff  3 3 sph/rhosum/norm ${cut} zmin/rho0 5 ${rho}
 pair_coeff  1*2 3 soft ${soft}
-special_bonds      lj 0 1 1 coul 0 1 1
 
+special_bonds      lj 0 1 1 coul 0 1 1
 bond_style         bpm/spring break no smooth no
 bond_coeff         1 ${kB1} 1.0 ${wall_damp}
 bond_coeff         2 ${kB2} 1.0 ${wall_damp}
@@ -115,14 +97,12 @@ angle_coeff 1 ${kA} ${theta_eq} x ${n_yz}
 
 fix     rheo all rheo ${cut} quintic 0 density ${rho} ${rho} ${rho} speed/sound $c $c $c &
         fixed/vel 1 0 0
-        # fixed/rho/region fixedrho
-# fix     visc all rheo/viscosity * constant ${mu}
-fix     visc all rheo/viscosity * power_openfoam ${mu_min} ${mu_max} ${K_power} ${n_power}
+fix     visc all rheo/viscosity * constant ${mu}
+# fix     visc all rheo/viscosity * power_openfoam ${mu_min} ${mu_max} ${K_power} ${n_power}
 fix     press all rheo/pressure * tait/water
 # set the force of fluid
 fix     G_fluid fluid gravity -9.81 vector 0 0 1
 fix     G_wall wall gravity -9.81 vector 0 0 1
-# fix     selfK wall spring/self ${k_self} yz
 fix     y0 wall store/state 0 y
 fix     z0 wall store/state 0 z
 # nonlinear restoring force
@@ -130,12 +110,11 @@ variable  Dy atom (f_y0-y)*gmask(wall)
 variable  Dz atom (f_z0-z)*gmask(wall)
 variable  FRy atom (2*(v_Dy>0)-1)*(abs(v_Dy)*${k1_self}+abs(v_Dy)^2*${k2_self})
 variable  FRz atom (2*(v_Dz>0)-1)*(abs(v_Dz)*${k1_self}+abs(v_Dz)^2*${k2_self})
-# variable  FRy atom (2*(v_Dy>0)-1)*(abs(v_Dy)*${k1_self})
-# variable  FRz atom (2*(v_Dz>0)-1)*(abs(v_Dz)*${k1_self})
 fix       FR wall addforce 0 v_FRy v_FRz
 # bath
 variable    ringID atom ceil((id-v_n_inlet)/v_n_yz)
 compute     ringID wall chunk/atom v_ringID nchunk once ids once
+variable    ringID_paper atom c_ringID-1
 
 compute   yz wall property/atom y z
 fix       yzAvg wall ave/chunk/preforce 1 1 1 ringID c_yz[1] c_yz[2]
@@ -150,9 +129,6 @@ fix       F_bath wall addforce 0 v_Fy_bath v_Fz_bath
 
 fix     xforce0  wall setforce 0. NULL NULL
 variable    p0 atom ${rho}*9.81*(${r_torus}+${l_pipe_vert}*0.9-z)
-# variable    rho0 atom (7*v_p0/($c^2*${rho})+1)^(1/7)*${rho}
-# set group fluid rheo/rho v_rho0
-# fix fixedrho fluid setrho v_rho0 region fixedrho
 # balance ========================
 comm_style tiled
 fix     bl all balance 10000 1.01 rcb
@@ -160,13 +136,8 @@ fix     bl all balance 10000 1.01 rcb
 # density and pressure
 compute     rho all rheo/property/atom rho
 compute     p all rheo/property/atom pressure
-compute     rhomin fluid reduce/region updaterho min c_rho
-compute     rhomax fluid reduce/region updaterho max c_rho
-# compute     fsph all rheo/property/atom fsph/*
-compute     fbond all rheo/property/atom fbpm/*
-# inflow and outflow rates
-# variable    n_inflow    equal -f_depos+count(fluid,inlet)
-# variable    n_outflow   equal f_delete+count(fluid,outlet)
+compute     rhomin fluid reduce min c_rho
+compute     rhomax fluid reduce max c_rho
 
 # the top and right end of the luminal fluid
 # compute     xzmax_fluid fluid reduce max x z
@@ -192,43 +163,34 @@ compute     zmax_fluid outlet_fluid reduce max z
 # variable vmag atom sqrt(vx^2+vy^2+vz^2)
 # compute vMax wall reduce  max v_vmag
 
-# outflow (evaporate)
-fix         in_del fluid evaporate 50 10000 inlet_del 2332
-fix         out_del fluid evaporate 50 10000 outlet_del 2332
 # output =================================
 # global output
 # thermo	      200
 # thermo_style	custom step press atoms &
-#                c_strainMin c_strainMax v_strainVar c_rhomin c_rhomax f_in_del f_out_del
+#                c_strainMin c_strainMax v_strainVar c_rhomin c_rhomax
 # thermo_modify	norm no
 
 # dump per-atom output
-dump	my_dump all custom 5000 &
-        ${cur_path}/create_geometry/dump/equip_si_bond-kself${k1_self}.dump &
-        id type x y z vx vy vz fx fy fz mass c_p c_rho c_strainAvg c_senseID c_visc c_fbond[2] c_fbond[3]
-        # v_Fy_bath v_Fz_bath v_FRy v_FRz c_fsph[2] c_fsph[3]
+dump	my_dump all custom 2000 &
+        ${cur_path}/create_geometry/dump/equip_si_bond-krebs-kself${k1_self}.dump &
+        id type x y z vx vy vz fx fy fz mass c_p c_rho c_strainAvg v_ringID_paper
+        # v_Fy_bath v_Fz_bath v_FRy v_FRz
 
 # variable t_dump equal stride2(400,500,50,450,458,2)
 dump_modify	 my_dump format float %.6e
-# output of flow rates
-# fix write_in_out all print $(v_Ninflow*10) """
-# - timestep: $(step)
-#   inflow: $(v_n_inflow)
-#   outflow: $(v_n_outflow)
-# """ file ${cur_path}/create_geometry/print_files/in_out_flow_bond_60w.yml screen no
 
 # RUN ==========================
 timestep    ${Dt}
 neighbor    ${skin} bin
 
-# run         20000
-# write_restart ${cur_path}/create_geometry/data/equip-si-bond2_angle-rheo-krebs-2w.restart
+# run         2000
+# write_restart ${data_path}/equip-si-bond2_angle-rheo-krebs-2k.restart
 # fully-developed inflow
-molecule    mymol  ${cur_path}/create_geometry/data/layer0.mol ${cur_path}/create_geometry/data/layer1.mol &
-                   ${cur_path}/create_geometry/data/layer2.mol ${cur_path}/create_geometry/data/layer3.mol &
-                   ${cur_path}/create_geometry/data/layer4.mol ${cur_path}/create_geometry/data/layer5.mol &
-                   ${cur_path}/create_geometry/data/layer6.mol ${cur_path}/create_geometry/data/layer7.mol &
-                   ${cur_path}/create_geometry/data/layer8.mol ${cur_path}/create_geometry/data/layer9.mol
+molecule    mymol  ${data_path}/layer0.mol ${data_path}/layer1.mol &
+                   ${data_path}/layer2.mol ${data_path}/layer3.mol &
+                   ${data_path}/layer4.mol ${data_path}/layer5.mol &
+                   ${data_path}/layer6.mol ${data_path}/layer7.mol &
+                   ${data_path}/layer8.mol ${data_path}/layer9.mol
 fix         depos_in fluid rheo/deposit 130000 0 ${Ninflow} 623 region drop_mol_in near ${dL} &
             vx 0 0 vy 0 0 vz 0 0 rho ${rho} status 0 mol mymol orient 0 0 1 &
             molfrac 0.13986014 0.13846154 0.13426573 0.12727273 0.11748252 0.1048951 &
@@ -238,16 +200,19 @@ fix         depos_out fluid rheo/deposit 130000 0 ${Ninflow} 623 region drop_mol
             molfrac 0.13986014 0.13846154 0.13426573 0.12727273 0.11748252 0.1048951 &
                     0.08951049 0.07132867 0.05034965 0.02657343
 
+# outflow (evaporate)
+fix         in_del fluid evaporate 50 10000 inlet_del 2332
+fix         out_del fluid evaporate 50 10000 outlet_del 2332
 
 thermo          200
 thermo_style	custom step press atoms &
                c_strainMin c_strainMax v_strainVar c_rhomin c_rhomax c_zmax_fluid f_in_del f_out_del
 thermo_modify	norm no
-restart 20000 ${cur_path}/create_geometry/data/equip-si-bond2_angle-rheo-chymepower-1.restart &
-              ${cur_path}/create_geometry/data/equip-si-bond2_angle-rheo-chymepower-2.restart
-run     20000
+restart 20000 ${data_path}/equip-si-bond2_angle-rheo-krebs-1.restart &
+              ${data_path}/equip-si-bond2_angle-rheo-krebs-2.restart
+run     0
 
 # run 1
 # unfix smooth
 
-# write_restart ${cur_path}/create_geometry/data/equip-si-bond2_angle-rheo-krebs-smooth24w.restart
+# write_restart ${data_path}/equip-si-bond2_angle-rheo-krebs-smooth4w.restart

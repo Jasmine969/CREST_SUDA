@@ -1,15 +1,4 @@
-# variable        plug_path getenv LMP_PLUGIN_RELEASE_PATH
-# plugin load     ${plug_path}/rhonorm_plugin.so ${plug_path}/setrho_plugin.so
-
-# dimension	3
-# atom_style	hybrid rheo bond
-# units		si
-# newton	 	on
-# boundary	f f f
-
-# variable          cur_path getenv MY_WORK
-# #  ===================================================
-# read_restart ${cur_path}/create_geometry/data/equip-si-bond_angle-rheo-resetrho-soft4e-10-krebs-kself0.006-30w.restart
+# include head-rheo.in
 
 # set parameters ======================
 # geometry params
@@ -50,17 +39,12 @@ set         group wall rheo/status 1
 set         group fluid rheo/status 0
 
 # region specification ================
-region      inlet block EDGE 0 EDGE EDGE EDGE EDGE  # the whole inlet
 region      outlet_del cylinder &
             z $(v_l_si+v_r_torus+v_l_pipe_hrz) 0 ${r_catheter} $(v_r_torus+v_l_pipe_vert*0.885) EDGE
-region      outlet block ${l_si} $(v_l_si+v_l_pipe_hrz+v_r_torus+v_r_si) &
-            -${r_si} ${r_si} -${r_si} $(v_r_torus+v_l_pipe_vert) # the whole outlet
 region      lumen cylinder x 0 0 ${r_si} 0 ${l_si}
 region      inlet_del cylinder &
             z $(-v_r_torus-v_l_pipe_hrz) 0 ${r_catheter} $(v_r_torus+v_l_pipe_vert*0.885) EDGE
 region      simulation_box block $(xlo) $(xhi) $(ylo) $(yhi) $(zlo) $(zhi)
-# region      fixedrho block $(-v_l_pipe_hrz) $(v_l_si+v_l_pipe_hrz) EDGE EDGE EDGE EDGE side out
-region      updaterho block $(-v_l_pipe_hrz) $(v_l_si+v_l_pipe_hrz) EDGE EDGE EDGE EDGE
 region      drop_mol_in cylinder &
             z $(-v_r_torus-v_l_pipe_hrz) 0 1e-20 $(v_r_torus+v_l_pipe_vert*0.7) $(v_r_torus+v_l_pipe_vert*0.88)
 region      drop_mol_out cylinder &
@@ -87,11 +71,9 @@ fix         out_del fluid evaporate 100 10000 outlet_del 2332
 # set pairs and bonds
 pair_style  hybrid/overlay sph/rhosum/norm 2 &
                            rheo ${cut} artificial/visc ${zeta} &
-                           soft ${dL} &
-                        #    rheo/solid
+                           soft ${dL}
 pair_coeff  * * rheo
-# pair_coeff  1*2 2 rheo/solid ${kB2} ${rc_solid} ${wall_damp}
-pair_coeff  3 3 sph/rhosum/norm ${cut}
+pair_coeff  3 3 sph/rhosum/norm ${cut} zmin/rho0 5 ${rho}
 pair_coeff  1*2 3 soft ${soft}
 
 special_bonds      lj 0 1 1 coul 0 1 1
@@ -148,15 +130,9 @@ fix       bl all balance 10000 1.01 rcb
 # density and pressure
 compute     rho all rheo/property/atom rho
 compute     p all rheo/property/atom pressure
-compute     rhomin fluid reduce/region updaterho min c_rho
-compute     rhomax fluid reduce/region updaterho max c_rho
-compute     fsph all rheo/property/atom fsph/y fsph/z
-compute     fbond all rheo/property/atom fbpm/y fbpm/z
+compute     rhomin fluid reduce min c_rho
+compute     rhomax fluid reduce max c_rho
 compute     visc all rheo/property/atom viscosity
-
-# inflow and outflow rates
-variable    n_inflow    equal f_in_del+count(fluid,inlet)-f_in_depos
-variable    n_outflow   equal f_out_del+count(fluid,outlet)-f_out_depos
 
 # wall strain
 variable    strain atom (v_rc-v_r_si)/v_r_si*gmask(wall)
@@ -174,9 +150,16 @@ thermo_modify	norm no
 
 # dump	my_dump all custom ${dmp_interval} &
 #         ${case_path}/${go_on_from_step}to${end_step}.dump &
-#         id type x y z vx vy vz fx fy fz mass c_p c_rho c_strainAvg c_ringID &
+#         id type x y z vx vy vz fx fy fz mass c_p c_rho c_strainAvg v_ringID_paper &
 #         v_Fy_bath v_Fz_bath v_FRy v_FRz f_F_active[2] f_F_active[3] c_fsph[1] c_fsph[2]
 # dump_modify my_dump format float %.6e
+
+# output of flow rates (moved to neuron_fluid_get_dump.py)
+# fix write_in_out all print 200 """
+# - timestep: $(step)
+#   inflow: $(v_n_inflow)
+#   outflow: $(v_n_outflow)
+# """ file ${case_path}/in_out_flow_${go_on_from_step}to${end_step}.yml screen no
 
 # RUN ==========================
 timestep    ${Dt}

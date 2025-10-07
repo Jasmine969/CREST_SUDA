@@ -1,27 +1,30 @@
+"""Extract the flow rate from the dump file by SurfaceFlow of paraview"""
 from paraview.simple import *
 from vtk.util.numpy_support import vtk_to_numpy
 import os
 from socket import gethostname
 import numpy as np
 import multiprocessing as mp
-from time import time
+from time import time, asctime, localtime
 import gc
-
-print("Rendering backend:", GetRenderView().GetRenderingBackend())
 
 host2path = {
     'LAPTOP-1QA0JPIO': 'F:/intestine_results',
     'DESKTOP-EHK58OI': 'F:/EntericNervousSystem/my_work/results',
     'gpu-server': '/data/zhuhong_codes/EntericNervousSystem/my_work/results'
 }
-RES_PATH: str = host2path[gethostname()]
-paraview.simple._DisableFirstRenderCameraReset()
+hostname = gethostname()
+if hostname in host2path:
+    RES_PATH: str = host2path[gethostname()]
+else:
+    RES_PATH = '../my_work/results'
 
-n_x = 2
-case_name = 'rheo_bond2_angle-F100-krebs-noICC-28w-ringstrain'
+n_x = 200
+case_name = 'rheo_bond2_angle-F100-chymepower-noICC-30w-ringstrain'
 path = f'{RES_PATH}/{case_name}'
 if not os.path.exists(f'{path}/intestine-fluid-velocity.pvsm'):
-    # 读取文件
+    paraview.simple._DisableFirstRenderCameraReset()
+    # read dump file
     reader = VisItLAMMPSDumpReader(
         registrationName='reader',
         FileName=f'{path}/0to1250000.dump',
@@ -33,17 +36,16 @@ if not os.path.exists(f'{path}/intestine-fluid-velocity.pvsm'):
     timesteps = tk.TimestepValues
     animationScene1 = GetAnimationScene()
     animationScene1.AnimationTime = timesteps[1]
-    # 显示结果
+    # display
     renderView1 = GetActiveViewOrCreate('RenderView')
     readerDisplay = Show(reader, renderView1)
     readerDisplay.Representation = 'Point Gaussian'
-    readerDisplay.GaussianRadius = 1e-4  # 与dL保持一致
-    # 将视图缩放到合适的视角
+    readerDisplay.GaussianRadius = 1e-4
     renderView1.ResetCamera()
 
     threshFluid = Threshold(
         registrationName='threshFluid',
-        Input=reader,  # 如果不指定Input，默认为active source
+        Input=reader,
         Scalars='species',
         ThresholdMethod='Above Upper Threshold',
         UpperThreshold=1.5
@@ -51,7 +53,7 @@ if not os.path.exists(f'{path}/intestine-fluid-velocity.pvsm'):
     Hide(reader, renderView1)
     threshFluidDisplay = Show(threshFluid, renderView1)
     threshFluidDisplay.Representation = 'Point Gaussian'
-    threshFluidDisplay.GaussianRadius = 1e-4  # 与dL保持一致
+    threshFluidDisplay.GaussianRadius = 1e-4
     renderView1.ResetCamera(1)
 
     mergeV = MergeVectorComponents(
@@ -63,7 +65,7 @@ if not os.path.exists(f'{path}/intestine-fluid-velocity.pvsm'):
     Hide(threshFluid, renderView1)
     mergeVDisplay = Show(mergeV, renderView1)
     mergeVDisplay.Representation = 'Point Gaussian'
-    mergeVDisplay.GaussianRadius = 1e-4  # 与dL保持一致
+    mergeVDisplay.GaussianRadius = 1e-4
     renderView1.ResetCamera(1)
 
     sphInterpFluid = SPHVolumeInterpolator(
@@ -101,7 +103,7 @@ def process(frame):
     start_time = time()
     results = []
     try:
-        print(f"Proc {me} starts to process step {frame}")
+        print(f"{asctime(localtime())} | Proc {me} starts to process step {frame}")
         LoadState(f'{path}/intestine-fluid-velocity.pvsm')
         tk = GetTimeKeeper()
         timesteps = tk.TimestepValues
@@ -110,7 +112,8 @@ def process(frame):
         renderView1 = GetActiveViewOrCreate('RenderView')
         renderView1.Update()
         isoVolumeFluid = FindSource('IsoVolumeFluid')
-        for i_x, x in enumerate([0, 0.04]):
+        xs = np.arange(n_x) * 2e-4
+        for i_x, x in enumerate(xs):
             slice = Slice(
                 registrationName='slice',
                 Input=isoVolumeFluid,
@@ -131,7 +134,11 @@ def process(frame):
             for obj in ['slice', 'flow']:
                 exec(f'Delete({obj})')
                 exec(f'del {obj}')
-        print(f"Proc {me} finished step {frame}, time elapsed: {elapsed:.2f}s\n")
+        print(f"{asctime(localtime())} | Proc {me} finished step {frame}, time elapsed: {elapsed:.2f}s\n")
+        render_window = renderView1.GetRenderWindow()
+        render_window.Finalize()
+        render_window.ReleaseGraphicsResources(render_window)
+        del render_window
         for obj in ['renderView1', 'animationScene1']:
             exec(f'Delete({obj})')
             exec(f'del {obj}')
@@ -146,7 +153,7 @@ def process(frame):
 if __name__ == '__main__':
     n_frame = 250
     flow_rates = np.zeros((n_frame, n_x))
-    pool = mp.Pool(processes=5)
+    pool = mp.Pool(processes=10, maxtasksperchild=1)
     flow_results = []
     for frame in range(1, n_frame + 1):
         flow_results.append(pool.apply_async(process, (frame,)))

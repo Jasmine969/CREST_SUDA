@@ -16,7 +16,7 @@ p_AH = dict(
     E_AH=-89 * mV,
     T_on=0.07 * second, T_off=0.5 * second,
     # SAC
-    E_SAC=40 * mV, G_SAC=0.05 * uS,
+    E_SAC=40 * mV, G_SAC=0.07 * uS,
 )
 # IPAN
 eqs_AH = '''

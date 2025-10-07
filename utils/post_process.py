@@ -3,18 +3,28 @@ from warnings import warn
 
 
 def customize_cmap(vmin, vmax, vsep, cmin, cmax, csep):
+    """
+    Make my diverging colormap
+    :param vmin: minimum value
+    :param vmax: maximum value
+    :param vsep: separating value
+    :param cmin: color for vmin
+    :param cmax: color for vmax
+    :param csep: color for vsep
+    :return: cmap
+    """
     from matplotlib.colors import LinearSegmentedColormap
     sep = (vsep - vmin) / (vmax - vmin)
-    cdict = {'red': [[0.0, cmin[0], cmin[0]],
-                     [sep, csep[0], csep[0]],
-                     [1.0, cmax[0], cmax[0]]],
-             'green': [[0.0, cmin[1], cmin[1]],
-                       [sep, csep[1], csep[1]],
-                       [1.0, cmax[1], cmax[1]]],
-             'blue': [[0.0, cmin[2], cmin[2]],
-                      [sep, csep[2], csep[2]],
-                      [1.0, cmax[2], cmax[2]]]}
-    return LinearSegmentedColormap('testCmap', segmentdata=cdict, N=256)
+    cdict = {'red': ((0.0, cmin[0], cmin[0]),
+                     (sep, csep[0], csep[0]),
+                     (1.0, cmax[0], cmax[0])),
+             'green': ((0.0, cmin[1], cmin[1]),
+                       (sep, csep[1], csep[1]),
+                       (1.0, cmax[1], cmax[1])),
+             'blue': ((0.0, cmin[2], cmin[2]),
+                      (sep, csep[2], csep[2]),
+                      (1.0, cmax[2], cmax[2]))}
+    return LinearSegmentedColormap('myCmap', segmentdata=cdict, N=256)
 
 
 def draw_colormap(cmap):

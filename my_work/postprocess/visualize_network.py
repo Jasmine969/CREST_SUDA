@@ -1,3 +1,6 @@
+"""
+SIPID is SMC ID here.
+"""
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 from matplotlib import cm, colormaps
@@ -35,17 +38,12 @@ step = t / 1000 / dt_lmp
 time_Tavg = net['mTavg'].t / ms
 TSMC = net['mTavg'].T_avg * 1e6
 vSMC = net['mSMC'].v / mV
-# vICC = net['mSMC'].v_ICC / mV
 # vICC = net['mICC'].v / mV
 vSN = net['mSN'].v / mV
 vAIN = vSN[:neuron_pop]
 vDIN = vSN[neuron_pop:neuron_pop * 2]
 vECMN = vSN[neuron_pop * 2:neuron_pop * 3]
 vICMN = vSN[neuron_pop * 3:neuron_pop * 4]
-# vAIN = vSN[:neuron_pop + 1]
-# vDIN = vSN[neuron_pop + 1:neuron_pop * 2 + 2]
-# vECMN = vSN[neuron_pop * 2 + 2:neuron_pop * 3 + 2]
-# vICMN = vSN[neuron_pop * 3 + 2:neuron_pop * 4 + 2]
 vIPAN = net['mIPAN'].v / mV
 DSTND = net['mStrain'].DSTND
 t_spikeIPAN = [each / ms for each in net['sIPAN'].values('t').values()]
@@ -65,6 +63,7 @@ t_spikeICMN = t_spikeSN[neuron_pop * 3:]
 
 
 def visualize_dynamics(draw_ICC):
+    """To make the network part of SV2-couple.mp4"""
     figure_path = f'{case_path}/net-snapshot'
     os.makedirs(figure_path, exist_ok=True)
     x_offset, x_scale = 1, 5
@@ -229,47 +228,10 @@ def visualize_dynamics(draw_ICC):
         # plt.show()
 
 
-def visualize_groups(t, data, xlim=None):
-    cmap = colormaps['jet']
-    colors = cmap(np.linspace(0, 1, data.shape[0]))
-    t /= 1000
-    # if xlim is None:
-    #     xlim = [0, 25]
-    ax = plt.axes(projection='3d')
-    pos = np.arange(data.shape[0])
-    TIME, POS = np.meshgrid(t, pos)
-    start = np.argwhere(t == xlim[0]).item()
-    end = np.argwhere(t == xlim[1]).item() + 1
-    for i in range(data.shape[0]):
-        ax.plot3D(TIME[i, start:end], POS[i, start:end], data[i, start:end], color=colors[i])
-    ax.set_xlabel('t (s)')
-    ax.set_ylabel('cell index')
-    ax.set_zlabel('V (mV)')
-    if xlim:
-        ax.set_xlim(xlim)
-    # ax2.set_zlim([-72, 46])
-    plt.show()
-
-
 def calc_freq(t_spike):
     # t_spike = t_spike[t_spike > 3600]
     fq = t_spike.size / ((t_spike[-1] - t_spike[0]) / 1000)
     return fq  # Hz
-
-
-def draw_potentials(ind=0):
-    fig, ax = plt.subplots(4, 1, sharex=True)
-    ax[0].plot(t, net['mIPAN'].v[ind] / mV)
-    ax[0].plot(t, net['mECMN'].v[ind] / mV)
-    ax[0].plot(t, net['mICMN'].v[ind] / mV)
-    ax[1].plot(t, net['mSMC'].v[ind] / mV)
-    ax[1].plot(t, net['mSMC'].v[ind + 7] / mV)
-    ax[1].plot(t, net['mSMC'].v_ICC[ind] / mV)
-    ax[2].plot(t, net['mSMC'].Ca_i[ind] / uM)
-    ax[2].plot(t, net['mSMC'].Ca_i[ind + 7] / uM)
-    ax[3].plot(net['mTavg'].t / ms, net['mTavg'].T_avg[ind])
-    ax[3].plot(net['mTavg'].t / ms, net['mTavg'].T_avg[ind + 7])
-    plt.show()
 
 
 def draw_ICC():
@@ -298,8 +260,6 @@ def draw_ICC():
 
 
 def raster_plot_tension(enlarge, colorbar=True):
-    font_ticks = {'size': 24, 'family': 'Arial'}
-    font_label = {'size': 28, 'family': 'Arial'}
     tension = TSMC * 1e6
     print(tension.max())
     plt.rc('font', **font_ticks)
@@ -364,27 +324,6 @@ def raster_plot_tension(enlarge, colorbar=True):
     plt.show()
 
 
-def plot_IN_IPAN():
-    msize = 2.5
-    opacity = 0.15
-    delta_y = 0.2
-    font_ticks = {'size': 17, 'family': 'Arial'}
-    font_label = {'size': 20, 'family': 'Arial'}
-    plt.plot(t_spikeAIN[:, 0] / 20, t_spikeAIN[:, 1] - delta_y, 'C2s', ms=msize, alpha=opacity)
-    plt.plot(t_spikeDIN[:, 0] / 20, t_spikeDIN[:, 1], 'C3s', ms=msize, alpha=opacity)
-    plt.plot(t_spikeIPAN[:, 0] / 20, t_spikeIPAN[:, 1] + delta_y, 'C4s', ms=msize, alpha=opacity)
-    # plt.xticks(ticks=np.arange(0, 501, 50), labels=np.arange(501 / 50, dtype=int), fontdict=font_ticks)
-    # plt.xlabel('Time (s)', fontdict=font_label)
-    # plt.ylim([49.5, -0.5])
-    # plt.yticks(ticks=np.arange(5, 51, 5) - 1, labels=np.arange(5, 51, 5), fontdict=font_ticks)
-    # plt.ylabel('Neuron index', fontdict=font_label)
-    plt.gcf().set_size_inches(10, 8)
-    plt.tight_layout()
-    big_file_path = 'G:\\E_Disk\\BigFiles\\2017-JNE'
-    # plt.savefig(f'{big_file_path}\\{case_name}\\compare_IPAN_IN.png')
-    plt.show()
-
-
 def draw_SMC(id_SMC=60):
     fig, ax = plt.subplots(7, 1, sharex=True)
     id_CMN = id_SMC // 2
@@ -417,9 +356,13 @@ def draw_SMC(id_SMC=60):
 
 
 def SMC_details_paper(id_SMC, bars=True):
+    """
+    Plot membrane potential, intracellular calcium concentration, and tension of an SMC.
+    :param id_SMC: SIP_ID
+    :param bars: whether to display scale bar
+    """
     global net, vICC, vSMC
     plt.rc('font', size=20, family='Arial')
-    font_label = {'size': 23, 'family': 'Arial'}
     plt.rc('lines', lw=2)
     fig, ax = plt.subplots(
         3, 1, sharex=True, sharey='row', layout='constrained', figsize=(9, 8))
@@ -449,12 +392,11 @@ def SMC_details_paper(id_SMC, bars=True):
     plt.show()
 
 
-def draw_SMC_paper(id_SMC=60):
+def SMC_network_paper(id_SMC):
+    """Show how an SMC is activated in a network"""
     from tqdm import trange
     folder = f'{RES_PATH}\\{case_name}\\SMC{id_SMC}'
     os.makedirs(folder, exist_ok=True)
-    font_ticks = {'size': 23, 'family': 'Arial'}
-    font_label = {'size': 28, 'family': 'Arial'}
     plt.rc('font', **font_ticks)
     Dy = 250
     id_CMN = id_SMC // 2
@@ -548,35 +490,6 @@ def draw_SMCs():
     plt.show()
 
 
-def draw_SMC_boundary_more():
-    fig, ax = plt.subplots(7, 1, sharex=True)
-    id_SMC = 0
-    id_CMN = 0
-    for id_IPAN in [0, 1, 2, 3, 4]:
-        ax[0].plot(t, DSTND[id_IPAN], label=id_IPAN)
-        ax[1].plot(t, vIPAN[id_IPAN], label=id_IPAN)
-    # ax2[2].plot(t, vECMN[id_CMN])
-    # ax2[2].plot(t, vICMN[id_CMN])
-    ax[2].plot(t, net['mSMC'].d_CaL[id_SMC])
-    ax[2].plot(t, net['mSMC'].f_CaL[id_SMC])
-    ax[2].plot(t, net['mSMC'].fCa_CaL[id_SMC])
-    ax[3].plot(t, vSMC[id_SMC], label=id_SMC)
-    ax[3].plot(t, vICC[id_SMC], label='ICC')
-    ax[4].plot(time_Tavg, TSMC[id_SMC], label=id_SMC)
-    ax[5].plot(t, net['mSMC'].I_CaL[id_SMC] / nA, label='CaL')
-    ax[5].plot(t, net['mSMC'].I_BK[id_SMC] / nA, label='BK')
-    ax[5].plot(t, net['mSMC'].I_EJP[id_SMC] / nA, label='EJP')
-    ax[5].plot(t, net['mSMC'].I_IJP[id_SMC] / nA, label='IJP')
-    ax[5].plot(t, net['mSMC'].I_GJ_SMC_ICC[id_SMC] / nA, label='ICC')
-    ax[5].plot(t, net['mSMC'].I_GJ_SMC_SMC[id_SMC] / nA, label='SMC')
-    ax[6].plot(t, net['mSMC'].Ca_i[id_SMC] / uM)
-    ax[6].plot(t, net['mSMC'].Ca_i[id_SMC] / net['mSMC'].cGMP[id_SMC] / uM)
-    ax[1].legend(loc='best')
-    ax[3].legend(loc='best')
-    ax[5].legend(loc='best', ncol=5)
-    plt.show()
-
-
 def drawIPAN(ind=0):
     fig, ax = plt.subplots(3, 1, sharex=True)
     for ind, ls in zip([39, 40], ['-', '--']):
@@ -593,6 +506,10 @@ def drawIPAN(ind=0):
 
 
 def calcium_map(ax=None, vline=None):
+    """
+    :param ax: external, optional
+    :param vline: same-x line (mm)
+    """
     from utils.id2x import x2ringID
     if ax:
         external_ax = True
@@ -601,7 +518,7 @@ def calcium_map(ax=None, vline=None):
         fig, ax = plt.subplots(figsize=(6, 5), layout='constrained')
         external_ax = False
     cai_map = np.zeros((200, 25000))
-    cai_map[8:-8] = net['mSMC'].Ca_i[:,::2] / uM
+    cai_map[8:-8] = net['mSMC'].Ca_i[:, ::2] / uM
     im = ax.imshow(cai_map.T, aspect='auto', vmin=0, vmax=1.5, cmap='viridis')
     cb = plt.colorbar(im)
     cb.set_label(r'$\mathrm{[Ca^{2+}]_i}$ (μM)', fontdict=font_label)
@@ -621,7 +538,19 @@ def calcium_map(ax=None, vline=None):
     plt.show()
 
 
-def plot_activation_window(waveID_global, ax=None, use_reverse_waveID=False):
+def plot_activation_window(waveID_global, SIPIDs=None, ax=None, use_reverse_waveID=False):
+    """
+    For each given SIPID, find its activation window
+    (duration of the window phase from the ending of ICMN inhibition to the ending of ECMN excitation)
+    along the given waveID.
+    Users always specify the global waveIDs, but the program needs the local ones (for an SMC).
+    For later waves with large global waveIDs, users can let the program use reverse waveIDs to avoid
+    unexpected errors.
+    :param waveID_global: self-explanatory
+    :param SIPIDs: list of SIPIDs
+    :param ax: external axes
+    :param use_reverse_waveID: whether map global waveIDs into local reverse waveIDs.
+    """
     from utils.mathfunc import find_clusters
     from scipy.signal import find_peaks
     with open(f'{case_path}/waveID_global2local.pkl', 'rb') as pf:
@@ -632,7 +561,8 @@ def plot_activation_window(waveID_global, ax=None, use_reverse_waveID=False):
         plt.rc('font', **font_ticks)
         fig, ax = plt.subplots(figsize=(6, 5), layout='constrained')
         external_ax = False
-    SIPIDs = np.arange(0, muscle_pop)
+    if SIPIDs is None:
+        SIPIDs = np.arange(0, muscle_pop)
     windows = np.zeros_like(SIPIDs, dtype=float)
     for i, SIPID in enumerate(SIPIDs):
         # i, SIPID = 1, 13
@@ -661,7 +591,6 @@ def plot_activation_window(waveID_global, ax=None, use_reverse_waveID=False):
                 print(f'SMC #{SIPID} has no such active force peaks')
                 windows[i] = np.nan
                 continue
-            # SIPID = 80
             if len(ECMN_ends) <= waveID_local:
                 print(f'ECMN #{neuronID} has no such spike bursts.')
                 windows[i] = np.nan
@@ -695,7 +624,7 @@ def plot_activation_window(waveID_global, ax=None, use_reverse_waveID=False):
         else:
             print(f'For SMC #{SIPID}, t_ICMN_end <= t_ECMN_start')
             windows[i] = t_ECMN_end - t_ECMN_start
-    ringIDs = np.arange(8, 200-8)
+    ringIDs = np.arange(8, 200 - 8)
     ax.plot(ringIDs, windows / 1000)
     if not external_ax:
         plt.show()
@@ -708,20 +637,12 @@ def draft():
 
 if __name__ == '__main__':
     # visualize_dynamics(draw_ICC=False)
-    # draw_t_local()
-    # visualize_groups(t, vSMC[:40], xlim=[0, 6])
-    # draw_current(ind=11)
     # draw_ICC()
-    # draw_potentials(ind=0)
-    # plot_IN_IPAN()
-    # plot_com()
-    # raster_plot_strain(enlarge=False, colorbar=True, figsize=(16, 6))
     # raster_plot_tension(enlarge=False, colorbar=True)
-    # draw_SMC_boundary_more()
     # drawIPAN(ind=29)
     # draw_SMC(id_SMC=59)
     # SMC_details_paper(id_SMC=24, bars=False)
-    draw_SMC_paper(id_SMC=59)
+    SMC_network_paper(id_SMC=59)
     # draw_SMCs()
     # calcium_map()
     # plot_activation_window(waveID_global=5, use_reverse_waveID=True)

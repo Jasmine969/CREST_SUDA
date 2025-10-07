@@ -3,8 +3,11 @@ from warnings import warn
 
 
 def proj(a: np.ndarray, b: np.ndarray) -> float:
-    # project vector a onto vector b
-    # return the magnitude of the resultant vector (projection length)
+    """
+    Project vector a onto vector b and
+    return the magnitude of the resultant vector (projection length)
+    """
+
     assert a.shape == b.shape
     if b.ndim == 1:
         res = np.dot(a, b) / np.sqrt(np.dot(b, b))
@@ -133,12 +136,6 @@ def find_clusters(points, threshold, min_population=0):
     populations = end_indices - start_indices
     # print(populations)
     mask = populations > min_population
-    # start_values = []
-    # end_values = []
-    # for start_idx, end_idx in zip(start_indices, end_indices):
-    #     if end_idx - start_idx > 0:
-    #         start_values.append(points[start_idx])
-    #         end_values.append(points[end_idx] + 1)
     return start_indices[mask], end_indices[mask]
 
 
