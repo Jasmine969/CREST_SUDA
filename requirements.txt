@@ -1,0 +1,9 @@
+Brian2==2.9.0
+matplotlib==3.10.3
+mpi4py==4.1.0
+numpy==1.26.4
+pandas==2.3.0
+PyYAML==6.0.2
+scipy==1.15.3
+statsmodels==0.14.4
+tqdm==4.67.1

@@ -23,7 +23,7 @@ compute 1 rheo/property/atom fsph/*
 compute 2 rheo/property/atom fbpm/y fbpm/z
 ```
 
-
+To implement this feature, we have modified `atom.h`, `atom.cpp`, `BPM/bond_bpm_spring.cpp`, `RHEO/atom_vec_rheo.h`, `RHEO/atom_vec_rheo.cpp`, `RHEO/compute_rheo_property_atom.cpp`, `RHEO/compute_rheo_property_atom.h`,`RHEO/pair_rheo_solid.cpp`.
 
 ## Plugin `fix ave/chunk/preforce`
 
@@ -76,6 +76,10 @@ pair_coeff ${cut} zmin/rho0 5 ${rho}
 ```
 
 The code (`src_plugins/SPH/pair_sph_rhosum_norm.cpp`) was modified based on `pair_sph_rhosum.cpp`.
+
+## Bug fixes
+
+`RHEO/fix_rheo_pressure.cpp` is modified as [issue #4589](https://github.com/lammps/lammps/issues/4589).
 
 # Installation
 
