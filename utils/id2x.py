@@ -1,5 +1,5 @@
 """
-Transform ringID, neuronID, SIP-ID to axial position and the reverses.
+Transform ringID, neuronID, SIP ID (SMC ID) to axial position and the reverses.
 The index is 0-based
 Default unit: mm
 """

@@ -8,8 +8,9 @@ import gc
 import logging
 from logging.handlers import QueueHandler, QueueListener
 
-transparent_bg = False
-w_img, h_img = 1500, 400
+transparent_bg = True
+scale_factor = 1.5
+w_img, h_img = int(1500 * scale_factor), int(400 * scale_factor)
 
 
 def init_worker(log_queue):
@@ -21,21 +22,25 @@ def init_worker(log_queue):
 
 
 case_name = 'rheo_bond2_angle-F100-krebs-noICC-28w-ringstrain'
+host2path = {
+    'LAPTOP-1QA0JPIO': 'F:/intestine_results',
+    'DESKTOP-EHK58OI': 'F:/EntericNervousSystem/my_work/results',
+    'gpu-server': '/data/zhuhong_codes/EntericNervousSystem/my_work/results'
+}
 hostname = gethostname()
-if hostname == 'DESKTOP-EHK58OI':
-    path = f'F:/EntericNervousSystem/my_work/results/{case_name}'
-    font_path = 'C:\\Windows\\Fonts\\arial.ttf'
-elif hostname == 'gpu-server':
-    path = f'/data/zhuhong_codes/EntericNervousSystem/my_work/results/{case_name}'
-    font_path = '/usr/share/fonts/truetype/arial/arial.ttf'
+if hostname in host2path:
+    RES_PATH: str = host2path[gethostname()]
 else:
-    path = f'F:/intestine_results/{case_name}'
-    font_path = 'C:\\Windows\\Fonts\\arial.ttf'
+    RES_PATH = '../my_work/results'
+
 if transparent_bg:
     png_folder = 'png-fluid-wall_transparent'
+    svg_folder = 'svg-fluid-wall_transparent'
 else:
     png_folder = 'png-fluid-wall'
+    svg_folder = 'svg-fluid-wall'
 os.makedirs(f'{path}/{png_folder}', exist_ok=True)
+os.makedirs(f'{path}/{svg_folder}', exist_ok=True)
 if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
     paraview.simple._DisableFirstRenderCameraReset()
     # 读取文件
@@ -94,7 +99,7 @@ if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
     sphInterpFluid.Kernel.SpatialStep = 1.3e-4
     l_buf = 0.005
     sphInterpFluid.Source.Origin = [-l_buf, -0.003, -0.003]
-    sphInterpFluid.Source.Scale = [0.04 + l_buf * 2, 0.006, 0.006]
+    sphInterpFluid.Source.Scale = [0.0398 + l_buf * 2, 0.006, 0.006]
     sphInterpFluid.Source.RefinementMode = 'Use cell-size'
     sphInterpFluid.Source.CellSize = 5e-5
     Hide(mergeV, renderView1)
@@ -117,7 +122,7 @@ if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
         Invert=True
     )
     clipFluid.ClipType.Position = [0.0, 0, -0.003]
-    clipFluid.ClipType.Length = [0.04, 0.003, 0.006]
+    clipFluid.ClipType.Length = [0.0398, 0.003, 0.006]
     Hide(isoVolumeFluid, renderView1)
     clipFluidDisplay = Show(clipFluid, renderView1)
     HideInteractiveWidgets(proxy=clipFluid)
@@ -156,13 +161,10 @@ if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
     vBar.TitleColor = [0.0, 0.0, 0.0]
     vBar.LabelColor = [0.0, 0.0, 0.0]
     # vBar.TitleFontFamily = 'File'
-    # vBar.TitleFontFile = font_path
     vBar.TitleFontSize = 23
     # 自定义位置
     vBar.WindowLocation = 'Any Location'
     vBar.Position = [0.17, 0.75]
-
-
 
     # Solid ====================================
     threshSolid = Threshold(
@@ -188,7 +190,7 @@ if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
     )
     sphInterpSolid.Kernel.SpatialStep = 1.7e-4
     sphInterpSolid.Source.Origin = [0, -0.003, -0.003]
-    sphInterpSolid.Source.Scale = [0.04, 0.006, 0.006]
+    sphInterpSolid.Source.Scale = [0.0398, 0.006, 0.006]
     sphInterpSolid.Source.RefinementMode = 'Use cell-size'
     sphInterpSolid.Source.CellSize = 5e-5
     Hide(threshSolid, renderView1)
@@ -250,7 +252,7 @@ if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
         Invert=True
     )
     clipSolid.ClipType.Position = [0.0, 0, -0.003]
-    clipSolid.ClipType.Length = [0.04, 0.003, 0.006]
+    clipSolid.ClipType.Length = [0.0398, 0.003, 0.006]
     Hide(prog, renderView1)
     clipSolidDisplay = Show(clipSolid, renderView1)
     HideInteractiveWidgets(proxy=clipSolid)
@@ -272,8 +274,6 @@ if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
     strainBar.ScalarBarThickness = 20
     strainBar.TitleColor = [0.0, 0.0, 0.0]
     strainBar.LabelColor = [0.0, 0.0, 0.0]
-    # strainBar.TitleFontFamily = 'File'
-    # strainBar.TitleFontFile = font_path
     strainBar.TitleFontSize = 23
     # 自定义位置
     strainBar.WindowLocation = 'Any Location'
@@ -314,7 +314,10 @@ def process(step):
         renderView1.Update()
         SaveScreenshot(filename=f'{path}/{png_folder}/wallSI{step:03}.png',
                        viewOrLayout=renderView1, ImageResolution=[w_img, h_img],
-                       TransparentBackground=transparent_bg)
+                       TransparentBackground=transparent_bg, CompressionLevel=0)
+        if step == 6: # export svg only once because only colorbar is svg
+            ExportView(filename=f'{path}/{svg_folder}/wallSI{step:03}.svg',
+               view=renderView1)
         logger.info(f'{me} finished timestep {step}, time elapsed: {time() - t0_me} s')
         for obj in ['renderView1', 'animationScene1']:
             exec(f'Delete({obj})')
@@ -337,13 +340,14 @@ if __name__ == '__main__':
     listener.start()
     t0 = time()
     with Pool(
-            processes=10,
+            processes=3,
             initializer=init_worker,
             initargs=(log_queue,),
     ) as pool:
-        pool.map(process, range(1, 251, 1))
+        # pool.map(process, range(1, 251, 1))
+        pool.map(process, [6, 115, 200])
     listener.stop()
     file_handler.close()
     manager.shutdown()
     print(f'Total time elapsed: {time() - t0} seconds')
-    #process(1)
+    # process(1)

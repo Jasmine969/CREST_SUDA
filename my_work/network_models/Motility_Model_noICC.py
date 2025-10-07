@@ -5,17 +5,22 @@ from socket import gethostname
 if gethostname() == 'gpu-server':
     codegen.cpp_prefs._compiler_supports_c99 = True
 BrianLogger.suppress_hierarchy('brian2.codegen.generators.base')
+"""
+delete ICC
+"""
 
 
 def MotilityModel(
         go_on,
         force_factor=5e-5,
+        JPalpha=90,
         V_half_EJP=-45, V_half_IJP=-55,
         w_boundary1=0.2,
         w_boundary2=0.3,
         neuron_pop=146,
         N_callback_net=10,
         dt_net=1e-4, dt_couple=1e-3,
+        G_SAC=0.05 * uS
 ):
     defaultclock.dt = dt_net * second
     # Parameters ==================================================================
@@ -117,7 +122,8 @@ def MotilityModel(
         E_IJP=-80 * mV, gmaxIJP=0.9 * uS,
         wIJP=0.01305, tauIJP1=30 * ms, tauIJP2=6 * ms,
         w_cGMP=3, tau_cGMP=100 * ms,
-        V_halfEJP=V_half_EJP, V_halfIJP=V_half_IJP
+        V_halfEJP=V_half_EJP, V_halfIJP=V_half_IJP,
+        JPalpha=JPalpha
     )
     p_SMC.update(p_global)
     p_SMC.update(dict(
@@ -314,8 +320,8 @@ def MotilityModel(
     I_IJP = gIJP*gmaxIJP*(E_IJP-v) : amp
     dgIJP/dt = ((tauIJP2/tauIJP1)**(tauIJP1/(tauIJP2-tauIJP1))*zIJP-gIJP)/tauIJP1 : 1
     dzIJP/dt = -zIJP/tauIJP2 : 1
-    EJPalpha = (90 / (1 + exp(-(v / mV - V_halfEJP))) + 10) / 100 : 1
-    IJPalpha = (90 / (1 + exp(-(v / mV - V_halfIJP))) + 10) / 100 : 1
+    EJPalpha = (JPalpha / (1 + exp(-(v / mV - V_halfEJP))) + 100 - JPalpha) / 100 : 1
+    IJPalpha = (JPalpha / (1 + exp(-(v / mV - V_halfIJP))) + 100 - JPalpha) / 100 : 1
     # EJPalpha = 1 : 1
     # IJPalpha = 1 : 1
     
@@ -471,3 +477,36 @@ def MotilityModel(
         ICMN_SMC
     )
     return network
+
+
+if __name__ == '__main__':
+    # pass
+    import pickle
+    from utils.result_path import RES_PATH
+
+    case_name = 'rheo_bond2_angle-krebs-noICC-12w-GSAC0.045'
+    dt_lmp = 2e-5 * second
+    with open(f'{RES_PATH}/{case_name}/net_params.pkl', 'rb') as f:
+        net_params = pickle.load(f)
+    net = MotilityModel(False, **net_params)
+    net['IPAN'].DSTND = np.array([
+        0.08463869, 0.08444111, 0.08244504, 0.08094176, 0.08146593,
+        0.08239001, 0.08306505, 0.08092948, 0.07989938, 0.08009509,
+        0.07951657, 0.08025125, 0.07961669, 0.07906211, 0.07790916,
+        0.07710773, 0.07716535, 0.07653147, 0.07660019, 0.07676818,
+        0.07797668, 0.07874418, 0.07731155, 0.07784684, 0.07760417,
+        0.07522806, 0.07396449, 0.07464097, 0.07658931, 0.07611858,
+        0.0767202, 0.07785969, 0.07880499, 0.0777724, 0.07656373,
+        0.07545012, 0.07510855, 0.07687499, 0.07835826, 0.07915963,
+        0.07862207, 0.07690246, 0.07708889, 0.07837281, 0.07918443,
+        0.08020594, 0.07973458, 0.07645202, 0.07441546, 0.0734678,
+        0.07554157, 0.07607196, 0.07695772, 0.07742815, 0.07580618,
+        0.07415781, 0.07469532, 0.07475758, 0.07427029, 0.07375799,
+        0.07342189, 0.07358996, 0.07533653, 0.07439401, 0.07471861,
+        0.07585073, 0.07755861, 0.07869137, 0.07963203, 0.07967509,
+        0.08032507, 0.08109745, 0.08076925, 0.0806353, 0.08016201,
+        0.08089542, 0.0810927, 0.08008149, 0.08074003, 0.07979609,
+        0.07952207, 0.08020466, 0.08125742, 0.08296072, 0.08227186,
+        0.08201795, 0.08380876, 0.08515391, 0.08516054, 0.08578428,
+        0.08742492, 0.08899308])
+    net.run(100 * ms)

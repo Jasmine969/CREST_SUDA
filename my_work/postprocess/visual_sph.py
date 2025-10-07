@@ -108,6 +108,10 @@ def flow_rate_paraview(ax=None):
 
 
 def flow_rate_map(ax=None, hlines=None):
+    """
+    Plot the flow rates on the spatiotemporal map.
+    One should first run my_work/postprocess/intestine-fluid-velocity.py to obtain flow-rates-paraview.npy
+    """
     from utils.id2x import x2ringID
     if ax is None:
         plt.rc('font', **font_ticks)
@@ -215,19 +219,18 @@ def intraluminal_pressure(dump_name):
         plt.show()
 
 
-def extract_force_strain_atom():
+def extract_force_strain_atom(ringID=116, atomID=11238):
     """
-    active force, gravity, bath force, FSI force (fsph + soft),
-    self-spring, viscoelastic force.
-    Only do extraction, no drawing.
+    For a single atom, extract the following forces: active force, gravity, bath force, FSI force,
+    restoring, viscoelastic force,
+    and the local strain.
+    Only do extraction without plotting.
     """
     from utils.mathfunc import proj
 
     if_print = False
-    ringID = 116
     atomID_min = n_inlet + ringID * n_yz + 1
     atomID_max = n_inlet + (ringID + 1) * n_yz
-    atomID = 11238
     assert atomID_min <= atomID <= atomID_max
 
     pipeline = import_file(f'{case_path}/0to1250000.dump', sort_particles=True)
@@ -327,10 +330,10 @@ def extract_force_strain_atom():
         if if_print:
             print(f'F_FSI={F_FSI_mag * unit_scale: .1f} {unit_name}')
 
-        # force-strain relationship ========================================
-        # assume inward direction as positive
         strain_local = (((y - center_y) ** 2 + (z - center_z) ** 2) ** 0.5 - r_si) / r_si
         df_force.loc[frame, 'strain_local'] = strain_local
+        # project forces onto the inward normal
+        # assume inward direction as positive
         vec_pt_center = np.array([center_y, center_z]) - np.array([y, z])
         df_force.loc[frame, 'gravity-in'] = proj(
             np.array([0, f_grav]), vec_pt_center) * unit_scale
@@ -353,10 +356,11 @@ def extract_force_strain_atom():
     np.savez(f'{case_path}/yz-center-ring{ringID}', yz=yz_all, center=center_all)
 
 
-def draw_atom_force_arrow(frame, ax=None, df_force=None, yz_and_center=None,
+def draw_atom_force_arrow(frame, ringID=116, atomID=11238,
+                          ax=None, df_force=None, yz_and_center=None,
                           if_annotate=True, spine=True, transparent_bg=False):
     """
-    One should first run extract_force_strain_atom
+    One should first run extract_force_strain_atom.
     If all the frames are to be drawn, the user can load file outside this function
     and pass it via df_force and yz_and_center to avoid repeated loading;
     else, if only a few frames are drawn, df_force and yz_and_center are loaded inside this function.
@@ -369,8 +373,6 @@ def draw_atom_force_arrow(frame, ax=None, df_force=None, yz_and_center=None,
     len_arrow = 0.0015
     right_annotate = left_annotate + len_arrow
     circle_area = 150
-    ringID = 116
-    atomID = 11238
     png_folder = f'png-force_arrow-ring{ringID}-atom{atomID}'
     os.makedirs(f'{case_path}/{png_folder}', exist_ok=True)
     id_yz = (atomID - 1 - n_inlet) % n_yz  # id on the current ring
@@ -457,15 +459,13 @@ def draw_atom_force_arrow(frame, ax=None, df_force=None, yz_and_center=None,
         plt.show()
 
 
-def plot_atom_force_strain(frame, ax=None, df_force=None):
+def plot_atom_force_strain(frame, ringID=116, atomID=11238, ax=None, df_force=None):
     """
-    One should first run extract_force_strain_atom
+    One should first run extract_force_strain_atom.
     If all the frames are to be drawn, the user can load file outside this function
     and pass it via df_force to avoid repeated loading;
     else, if only a few frames are drawn, df_force is loaded inside this function.
     """
-    ringID = 116
-    atomID = 11238
     if df_force is None:
         df_force = pd.read_excel(f'{case_path}/force-ring{ringID}-atom{atomID}.xlsx')
     if ax is None:
@@ -494,13 +494,12 @@ def plot_atom_force_strain(frame, ax=None, df_force=None):
         plt.show()
 
 
-def combine_atom_force_strain_arrow():
+def combine_atom_force_strain_arrow(ringID=116, atomID=11238):
     """
     One should first run extract_force_strain_atom
-    Combine func draw_atom_force_arrow and func plot_atom_force_strain in a figure
+    Combine func draw_atom_force_arrow and func plot_atom_force_strain in a figure.
+    To make SV1-force-strain-ring?-atom?.mp4
     """
-    ringID = 116
-    atomID = 11238
     os.makedirs(f'{case_path}/png-force-strain-ring{ringID}-atom{atomID}', exist_ok=True)
     df_force = pd.read_excel(f'{case_path}/force-ring{ringID}-atom{atomID}.xlsx')
     yz_and_center = np.load(f'{case_path}/yz-center-ring{ringID}.npz')
@@ -530,7 +529,7 @@ def combine_atom_force_strain_arrow():
         # plt.show()
 
 
-def force_time_atom(ax_force=None, ax_strain=None):
+def force_time_atom(ringID=116, atomID=11238, ax_force=None, ax_strain=None):
     """
     One should first run extract_force_strain_atom
     Plot force-time and strain_local-time simultaneously.
@@ -538,12 +537,10 @@ def force_time_atom(ax_force=None, ax_strain=None):
     """
     assert not (bool(ax_force) ^ bool(ax_strain))
     plt.rc('font', **font_ticks)
-    ringID = 116
-    atomID = 11238
     df_force = pd.read_excel(f'{case_path}/force-ring{ringID}-atom{atomID}.xlsx')
     columns_want = ['strain_local'] + [each for each in df_force.columns if '-in' in each]
     df_force = df_force[columns_want]
-    columns=dict()
+    columns = dict()
     for each in df_force.columns:
         if each != 'FSI-in':
             columns[each] = each.capitalize().split('-')[0]
@@ -585,6 +582,9 @@ def force_time_atom(ax_force=None, ax_strain=None):
 
 
 def force_time_atom_paper():
+    """
+    Plot Fig. 2c
+    """
     import matplotlib as mpl
     mpl.rcParams['svg.fonttype'] = 'none'
     plt.rc('font', **font_ticks)
@@ -607,7 +607,7 @@ def extract_force_ring(ringID):
     """
     Almost the same as extract_force_strain_atom,
     but average the forces of a ring.
-    The strain is obtained after running extract_all_rings_strain()
+    The strain is not obtained here, but by running extract_all_rings_strain
     """
     from utils.mathfunc import proj
     plt.rc('font', **font_ticks)
@@ -667,9 +667,50 @@ def extract_force_ring(ringID):
     writer.close()
 
 
-def plot_force_strain_ring(ringID, ax_force=None, ax_strain=None,
-                           names_force=None, which_strain='interface',
-                           positive_force='inward'):
+def extract_all_rings_strain():
+    """
+    Extract strains of rings from the dump file.
+    """
+    pipeline = import_file(f'{case_path}/0to1250000.dump', sort_particles=True)
+    pipeline.modifiers.extend([
+        mod.SelectTypeModifier(types={1, 3}),
+        mod.DeleteSelectedModifier(operate_on={'particles'})
+    ])
+    n_frames = pipeline.source.num_frames
+    ring_strains = np.zeros((200, n_frames))
+    for frame in trange(n_frames):
+        data = pipeline.compute(frame)
+        yz = data.particles['Position'][:, 1:]
+        yz = yz.reshape(-1, n_yz, 2)
+        center_yz = yz.mean(axis=1, keepdims=True)
+        ring_strain = np.sqrt(((yz - center_yz) ** 2).sum(axis=-1)).mean(axis=1)
+        ring_strains[:, frame] = (ring_strain - r_si) / r_si
+    np.save(f'{case_path}/all_rings_strain', ring_strains)
+    plt.imshow(ring_strains.T, aspect='auto')
+    plt.show()
+
+
+def interpolate_ring_strain(points):
+    """
+    Users must first run extract_all_rings_strain to get the data.
+    :param points: ndarray with shape of (N,2), 0th col is time and 1st col is x
+    """
+    from scipy.interpolate import RegularGridInterpolator as RGI
+    strain = np.load(f'{case_path}/all_rings_strain.npy')
+    strain_finer = RGI((np.arange(strain.shape[1]) * 100,  # t (ms)
+                        np.arange(strain.shape[0])),  # ringID
+                       strain.T, method='linear')
+    return strain_finer(points)
+
+
+def plot_force_strain_ring(
+        ringID, ax_force=None, ax_strain=None,
+        names_force=None,
+        # use strain of interface (averaged but high-resolution) or dump (accurate but low-resolution)
+        which_strain='interface',
+        positive_force='inward'
+):
+    """Used in combined_figures-contract_relax.py"""
     if ax_force is None and ax_strain is None:
         plt.rc('font', size=17, family='Arial')
         fig, ax = plt.subplots(2, 1, sharex=True, layout='constrained', figsize=(10, 5))
@@ -898,8 +939,8 @@ def interpolate_FSI_force(points):
     from scipy.interpolate import RegularGridInterpolator as RGI
     FSI_force = np.load(f'{case_path}/FSI_force_map.npy')
     FSI_force_finer = RGI((np.arange(FSI_force.shape[1]) * 100,  # t (ms)
-                               np.arange(FSI_force.shape[0])),  # ringID
-                              FSI_force, method='linear')
+                           np.arange(FSI_force.shape[0])),  # ringID
+                          FSI_force, method='linear')
     return FSI_force_finer(points)
 
 
@@ -917,6 +958,13 @@ def interpolate_ve_force(points):
 
 
 def plot_longitudinal_bond_force_multiframe(frames, ringIDmin, ringIDmax, ax=None):
+    """
+    Self-explanatory. The region is from ringIDmin to ringIDmax.
+    :param frames: list
+    :param ringIDmin: left bound of the region
+    :param ringIDmax: right bound of the region
+    :param ax: external Axes
+    """
     if ax is None:
         fig, ax = plt.subplots()
         external_ax = False
@@ -958,39 +1006,6 @@ def chunk_vmag():
     dt_lmp = 2e-5
     Ncallback_lmp_max = np.ceil(delta_strain_max * r_si / vmag_max / dt_lmp)
     print(Ncallback_lmp_max)
-
-
-def extract_all_rings_strain():
-    pipeline = import_file(f'{case_path}/0to1250000.dump', sort_particles=True)
-    pipeline.modifiers.extend([
-        mod.SelectTypeModifier(types={1, 3}),
-        mod.DeleteSelectedModifier(operate_on={'particles'})
-    ])
-    n_frames = pipeline.source.num_frames
-    ring_strains = np.zeros((200, n_frames))
-    for frame in trange(n_frames):
-        data = pipeline.compute(frame)
-        yz = data.particles['Position'][:, 1:]
-        yz = yz.reshape(-1, n_yz, 2)
-        center_yz = yz.mean(axis=1, keepdims=True)
-        ring_strain = np.sqrt(((yz - center_yz) ** 2).sum(axis=-1)).mean(axis=1)
-        ring_strains[:, frame] = (ring_strain - r_si) / r_si
-    np.save(f'{case_path}/all_rings_strain', ring_strains)
-    plt.imshow(ring_strains.T, aspect='auto')
-    plt.show()
-
-
-def interpolate_ring_strain(points):
-    """
-    Users must first run extract_all_rings_strain to get the data.
-    :param points: ndarray with shape of (N,2), 0th col is time and 1st col is x
-    """
-    from scipy.interpolate import RegularGridInterpolator as RGI
-    strain = np.load(f'{case_path}/all_rings_strain.npy')
-    strain_finer = RGI((np.arange(strain.shape[1]) * 100,  # t (ms)
-                        np.arange(strain.shape[0])),  # ringID
-                       strain.T, method='linear')
-    return strain_finer(points)
 
 
 def extract_velocity(dump_name):

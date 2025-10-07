@@ -1,6 +1,7 @@
 """
 Functions in this file only deal with
-the interface variables, i.e., tension and strain
+the interface variables, i.e., tension (active force) and strain.
+SIPID is SMC ID here.
 """
 import os.path
 
@@ -26,7 +27,7 @@ n_rings = 200
 def strain_map(ax=None, hlines=None):
     """
     :param ax: external, optional
-    :param hlines: same-t line (ms)
+    :param hlines: same-t line (s)
     """
     from utils.id2x import x2ringID
 
@@ -63,8 +64,8 @@ def strain_map(ax=None, hlines=None):
         return xticks, xtick_labels, yticks, ytick_labels
     plt.xticks(xticks, xtick_labels, fontdict=font_ticks)
     plt.yticks(yticks, ytick_labels, fontdict=font_ticks)
-    plt.xlabel('Axial position x (mm)', fontdict=font_label)
-    plt.ylabel('Time (sec)', fontdict=font_label)
+    plt.xlabel('x (mm)', fontdict=font_label)
+    plt.ylabel('Time (s)', fontdict=font_label)
     plt.tight_layout()
     fig.savefig(f'{case_path}/strainMap.png', dpi=300)
     plt.show()
@@ -112,7 +113,7 @@ def strain_single_ring(ringID, diameter=False, ax=None):
     else:
         external_ax = True
     if diameter:
-        ax.plot((1+strain[:, ringID]) * r_si * 2)
+        ax.plot((1 + strain[:, ringID]) * r_si * 2)
     else:
         ax.plot(strain[:, ringID])
     if not external_ax:
@@ -121,7 +122,13 @@ def strain_single_ring(ringID, diameter=False, ax=None):
         plt.show()
 
 
-def wave_vel_advanced(ax=None):
+def compute_wave_vel(ax=None):
+    """
+    Compute the wave velocity as Supplementary Note 3.
+    When you first run this without wave_labels.pkl, you should use
+    LassoMultipleSelect to manually select each wave, resultingg in wave_labels.pkl.
+    In the next runs, you can comment LassoMultipleSelect.
+    """
     from scipy.signal import convolve2d
     from utils.mathfunc import slope_estimate_batch
     from functools import partial
@@ -136,8 +143,8 @@ def wave_vel_advanced(ax=None):
     quiver = partial(plt.quiver, scale=scale, angles='xy',
                      width=0.003, headwidth=3, headlength=5, headaxislength=4.5)
     print(strain.shape)
-    t = np.arange(-n_time_half, n_time_half+1)
-    G_t = -t / (np.sqrt(2 * np.pi) * sigma_t ** 3*dt) * np.exp(-t ** 2 / (2 * sigma_t ** 2))
+    t = np.arange(-n_time_half, n_time_half + 1)
+    G_t = -t / (np.sqrt(2 * np.pi) * sigma_t ** 3 * dt) * np.exp(-t ** 2 / (2 * sigma_t ** 2))
     G_t = G_t[:, np.newaxis]
     strain_dt = convolve2d(strain, G_t, mode='same', boundary='symm')
     vmin, vmax = strain_dt.min(), strain_dt.max()
@@ -208,68 +215,6 @@ def wave_vel_advanced(ax=None):
     else:
         for each in slope_scale_tx_smooth_list:
             ax.plot(each[:, 2] / 1000, each[:, 1], lw=2)
-
-
-def waveID_global2local():
-    """
-    Note that the global 5th wave can be the 4th wave of SMC #90.
-    Useful in plot_strain_troughs and plot_tension_peaks.
-    Users always specify the global waveIDs, but the program needs the local ones.
-    """
-    from math import floor, ceil
-    print('Create file waveID_global2local.pkl ...')
-    with open(f'{case_path}/slope_scale_tx_smooth_list.pkl', 'rb') as pf2:
-        slope_scale_tx_smooth_list = pickle.load(pf2)
-
-    global2local = [dict() for _ in range(n_rings)]
-    for waveID, slope_scale_tx_smooth in enumerate(slope_scale_tx_smooth_list):
-        x = slope_scale_tx_smooth[:, -1]
-        ringID_min = floor(x.min())
-        ringID_max = ceil(x.max())
-        for ringID in range(ringID_min, ringID_max + 1):
-            global2local[ringID][waveID] = len(global2local[ringID])
-    with open(f'{case_path}/waveID_global2local.pkl', 'wb') as pf:
-        pickle.dump(global2local, pf)
-    print('Finish creating.')
-
-
-def contraction_rate():
-    """
-    Define the peak point as (t_p, x_p). Extract all the points (t, x) subject to
-        abs(t-t_p)<=0.5 sec=500 ms and x=x_p, also abs(strain_dt(x, t))>0.5 mm/s.
-    :return:
-    """
-    from scipy.signal import convolve2d
-    from scipy.interpolate import RegularGridInterpolator as RGI
-
-    dt = 1e-3
-    t_range = 1000  # ms
-    n_time = 100
-    sigma_t = n_time / 6
-    t = np.arange(n_time) - np.arange(n_time).mean()
-    G_t = -t / (np.sqrt(2 * np.pi) * sigma_t ** 3) * np.exp(-t ** 2 / (2 * sigma_t ** 2))
-    G_t = G_t[:, np.newaxis]
-    strain_dt = convolve2d(strain, G_t, mode='same', boundary='symm')
-    im = plt.imshow(strain_dt / dt * r_si, aspect='auto', vmin=-2, vmax=2, cmap='bwr')
-    plt.colorbar(im)
-    plt.show()
-    strain_dtdt = convolve2d(strain_dt, G_t, mode='same', boundary='symm')
-    contraction_line = np.where((np.abs(strain_dt) < 7e-5) & (strain_dtdt > 0) & (strain < -0.07))
-    contraction_line = np.array(contraction_line).T
-    contraction_line[:, 0] = contraction_line[:, 0] + 1  # time index of 0 on the strain_map is actually 1 ms
-    strain_dt_finer = RGI((np.arange(1, strain.shape[0] + 1),  # t (ms)
-                           np.arange(strain.shape[1]),  # ringID
-                           ), strain_dt / dt * r_si,  # mm/s
-                          method='linear')
-    with open(f'{case_path}/slope_scale_tx_smooth_list.pkl', 'rb') as pf2:
-        slope_scale_tx_smooth_list = pickle.load(pf2)
-    slope_scale_tx_smooth_all = np.vstack(slope_scale_tx_smooth_list)
-    ts = np.linspace(-1000, 1000, 100) + slope_scale_tx_smooth_all[:, 2]
-    points = np.c_[ts, slope_scale_tx_smooth_all[:, 3]]
-    plt.scatter(points[:, 1], points[:, 0], s=1)
-    # plt.plot(slope_scale_tx_smooth_all[:, 2], strain_dt_finer(slope_scale_tx_smooth_all[:, 2:]))
-    # plt.plot(contraction_line[:, 0], strain_dt_finer(contraction_line))
-    plt.show()
 
 
 def extract_wall_move_vel(t, y, target_level=0.05, ringID=0):
@@ -346,6 +291,7 @@ def extract_wall_move_vel(t, y, target_level=0.05, ringID=0):
 
 
 def contraction_relaxation_vel(ax=None):
+    """Find the velocities of contraction/relaxation for each ring"""
     from tqdm import tqdm
 
     if ax is None:
@@ -419,6 +365,29 @@ def extract_wave_front(peaks: np.ndarray, method='threshold', param=0.05) -> np.
         else:
             res[i, 0] = root_nearest_smaller(strain_same_x, t, step=200, max_range=3000)
     return res
+
+
+def waveID_global2local():
+    """
+    Note that the global 5th wave can be the 4th wave of SMC #90.
+    Useful in plot_strain_troughs and plot_tension_peaks.
+    Users always specify the global waveIDs, but the program needs the local ones.
+    """
+    from math import floor, ceil
+    print('Create file waveID_global2local.pkl ...')
+    with open(f'{case_path}/slope_scale_tx_smooth_list.pkl', 'rb') as pf2:
+        slope_scale_tx_smooth_list = pickle.load(pf2)
+
+    global2local = [dict() for _ in range(n_rings)]
+    for waveID, slope_scale_tx_smooth in enumerate(slope_scale_tx_smooth_list):
+        x = slope_scale_tx_smooth[:, -1]
+        ringID_min = floor(x.min())
+        ringID_max = ceil(x.max())
+        for ringID in range(ringID_min, ringID_max + 1):
+            global2local[ringID][waveID] = len(global2local[ringID])
+    with open(f'{case_path}/waveID_global2local.pkl', 'wb') as pf:
+        pickle.dump(global2local, pf)
+    print('Finish creating.')
 
 
 def wave_vel_paper(ax_map=None, ax_vel=None, need_front_same_wave=None, need_peak_same_x=None):
@@ -515,10 +484,18 @@ def wave_vel_paper(ax_map=None, ax_vel=None, need_front_same_wave=None, need_pea
     plt.show()
 
 
-
 def plot_strain_troughs(waveID_global, ringIDs=None, ax=None, use_reverse_waveID=False):
+    """
+    For each given ringID, find its strain trough (most negative strain) along the given waveID.
+    Users always specify the global waveIDs, but the program needs the local ones (for an SMC).
+    For later waves with large global waveIDs, users can let the program use reverse waveIDs to avoid
+    unexpected errors.
+    :param waveID_global: self-explanatory
+    :param ringIDs: list of ringIDs
+    :param ax: external axes
+    :param use_reverse_waveID: whether map global waveIDs into local reverse waveIDs.
+    """
     from scipy.signal import find_peaks
-    from utils.id2x import x2ringID
     with open(f'{case_path}/waveID_global2local.pkl', 'rb') as pf:
         waveID_global2local = pickle.load(pf)
     if ax is None:
@@ -531,12 +508,7 @@ def plot_strain_troughs(waveID_global, ringIDs=None, ax=None, use_reverse_waveID
         ringIDs = np.arange(8, 200 - 8)
     troughs = np.zeros_like(ringIDs, dtype=float)
     for i, ringID in enumerate(ringIDs):
-        # ringID = 148
         trough_ids, _ = find_peaks(-strain[:, ringID], prominence=0.03, height=0.1)
-        # t = np.arange(1,25001)
-        # plt.plot(t, strain[:, ringID])
-        # plt.scatter(t[trough_ids], strain[trough_ids, ringID], s=60)
-        # plt.show()
         if waveID_global not in waveID_global2local[ringID]:
             print(f'ring #{ringID} is not involved in this wave')
             troughs[i] = np.nan
@@ -555,14 +527,20 @@ def plot_strain_troughs(waveID_global, ringIDs=None, ax=None, use_reverse_waveID
     ax.plot(ringIDs, troughs)
     if not external_ax:
         plt.show()
-    # xtick_labels = np.arange(10, 40, 10)
-    # xticks = x2ringID(xtick_labels)
-    # plt.xticks(xticks, xtick_labels)
 
 
 def plot_tension_peaks(waveID_global, ringIDs=None, ax=None, use_reverse_waveID=False):
+    """
+    For each given ringID, find its tension peaks (largest tension) along the given waveID.
+    Users always specify the global waveIDs, but the program needs the local ones (for an SMC).
+    For later waves with large global waveIDs, users can let the program use reverse waveIDs to avoid
+    unexpected errors.
+    :param waveID_global: self-explanatory
+    :param ringIDs: list of ringIDs
+    :param ax: external axes
+    :param use_reverse_waveID: whether map global waveIDs into local reverse waveIDs.
+    """
     from scipy.signal import find_peaks
-    from utils.id2x import x2ringID
     with open(f'{case_path}/waveID_global2local.pkl', 'rb') as pf:
         waveID_global2local = pickle.load(pf)
     if ax is None:
@@ -576,16 +554,7 @@ def plot_tension_peaks(waveID_global, ringIDs=None, ax=None, use_reverse_waveID=
     peaks = np.zeros_like(ringIDs, dtype=float)
     for i, ringID in enumerate(ringIDs):
         SIPID = ringID - 8
-        # ringID = 148
         peak_ids, _ = find_peaks(tension[:, SIPID], height=2)
-        # t = np.arange(1,25001)
-        # plt.plot(t, tension[:, SIPID])
-        # plt.scatter(t[peak_ids], tension[peak_ids, SIPID], s=60)
-        # plt.show()
-        # t = np.arange(1,25001)
-        # plt.plot(t, tension[:, ringID])
-        # plt.scatter(t[peak_ids], tension[peak_ids, ringID], s=60)
-        # plt.show()
         if waveID_global not in waveID_global2local[ringID]:
             print(f'ring #{ringID} is not involved in this wave')
             peaks[i] = np.nan
@@ -604,39 +573,6 @@ def plot_tension_peaks(waveID_global, ringIDs=None, ax=None, use_reverse_waveID=
     ax.plot(ringIDs, peaks)
     if not external_ax:
         plt.show()
-    # xtick_labels = np.arange(10, 40, 10)
-    # xticks = x2ringID(xtick_labels)
-    # plt.xticks(xticks, xtick_labels)
-
-
-def plot_tension_peaks_bkp(waveID, SIPIDs=None, ax=None):
-    from scipy.signal import find_peaks
-    from utils.id2x import x2ringID
-    if ax is None:
-        plt.rc('font', **font_ticks)
-        fig, ax = plt.subplots(layout='constrained')
-        external_ax = False
-    else:
-        external_ax = True
-    if SIPIDs is None:
-        SIPIDs = np.arange(0, 200 - 8 * 2)
-    peaks = np.zeros_like(SIPIDs, dtype=float)
-    for i, SIPID in enumerate(SIPIDs):
-        peak_ids, _ = find_peaks(tension[:, SIPID], prominence=0.15, height=0.1)
-        # t = np.arange(1,25001)
-        # plt.plot(t, strain[:, ringID])
-        # plt.scatter(t[trough_ids], strain[trough_ids, ringID], s=60)
-        # plt.show()
-        if len(peak_ids) <= waveID:
-            print(f'SMC #{SIPID} has no such peaks')
-            continue
-        peaks[i] = tension[peak_ids[waveID], SIPID]
-    plt.plot(SIPIDs, peaks)
-    if not external_ax:
-        plt.show()
-    # xtick_labels = np.arange(10, 40, 10)
-    # xticks = x2ringID(xtick_labels)
-    # plt.xticks(xticks, xtick_labels)
 
 
 def tension_map(ax=None, vline=None):
@@ -681,6 +617,13 @@ def tension_map(ax=None, vline=None):
 
 
 def plot_strain_multiframe(frames, ringIDmin, ringIDmax, ax=None):
+    """
+    Self-explanatory. The region is from ringIDmin to ringIDmax.
+    :param frames: list
+    :param ringIDmin: left bound of the region
+    :param ringIDmax: right bound of the region
+    :param ax: external Axes
+    """
     if ax is None:
         fig, ax = plt.subplots()
         external_ax = False
@@ -695,6 +638,13 @@ def plot_strain_multiframe(frames, ringIDmin, ringIDmax, ax=None):
 
 
 def plot_tension_multiframe(frames, ringIDmin, ringIDmax, ax=None):
+    """
+    Self-explanatory. The region is from ringIDmin to ringIDmax.
+    :param frames: list
+    :param ringIDmin: left bound of the region
+    :param ringIDmax: right bound of the region
+    :param ax: external Axes
+    """
     # im = plt.imshow(tension[frames[0]:frames[-1], ringIDmin:ringIDmax],aspect='auto')
     # plt.colorbar(im)
     # plt.show()
@@ -731,12 +681,12 @@ def draft():
 
 if __name__ == '__main__':
     # ax = plt.axes()
-    # strain_map()
+    strain_map()
     # plt.show()
     # interpolate_ring_strain(np.array([[1, 3]]))
     # strain_single_ring([8])
     # fig, ax = plt.subplots()
-    wave_vel_advanced()
+    # compute_wave_vel()
     # waveID_global2local()
     # contraction_rate()
     # contration_relaxation_vel()

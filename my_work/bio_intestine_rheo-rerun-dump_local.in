@@ -6,9 +6,9 @@ units		si
 newton	 	on
 boundary	f f f
 
-variable        cur_path getenv MY_WORk
-variable        case_path string ${cur_path}/results/rheo_bond2_angle-F100-krebs-noICC-28w-ringstrain
-# variable case_path string F:\intestine_results\rheo-F100-krebs-kself0_18-deposit-66w
+variable        cur_path getenv MY_WORK
+# variable        case_path string ${cur_path}/results/rheo_bond2_angle-F100-krebs-noICC-28w-ringstrain
+variable case_path string ${cur_path}/create_geometry/dump
 #  ===================================================
 read_restart ${cur_path}/create_geometry/data/equip-si-bond2_angle-rheo-krebs-28w.restart
 # read_restart F:\intestine_results\equip-si-bond-rheosolid-krebs-kself0_18-66w.restart
@@ -29,7 +29,8 @@ variable    theta_eq    equal 180*(${n_yz}-2)/${n_yz}
 variable    wall_damp   equal 1e-4
 variable    cut	        equal 1.6*${dL}
 variable    skin        equal 0.3*${cut}
-group       wall        type 2
+# group       wall        type 2
+group       solid        type 1:2
 
 # forces ==============================
 # set pairs and bonds
@@ -38,8 +39,10 @@ pair_coeff  * *
 
 special_bonds      lj 0 1 1 coul 0 1 1
 bond_style         bpm/spring break no smooth no
-bond_coeff         1 ${kB1} 1.0 ${wall_damp}
-bond_coeff         2 ${kB2} 1.0 ${wall_damp}
+# bond_coeff         1 ${kB1} 1.0 ${wall_damp} # circumferential
+bond_coeff         1 0 1.0 0 # circumferential
+# bond_coeff         2 ${kB2} 1.0 ${wall_damp} # longitudinal
+bond_coeff         2 0 1.0 0 # longitudinal
 
 angle_style harmonic/concave
 angle_coeff 1 ${kA} ${theta_eq} x ${n_yz}
@@ -53,8 +56,9 @@ thermo	      200
 thermo_style	custom step time cpu atoms press
 thermo_modify	norm no warn 10
 
-dump 1 wall custom 5000 ${case_path}/Fbond.dump id type x y z fy fz
+# dump 1 wall custom 5000 ${case_path}/Fbond.dump id type x y z fy fz
+dump 1 solid custom 500 ${case_path}/Fbond-angle-equip_si_bond-krebs-kself0.dump id type x y z fy fz
 # RUN ==========================
 neighbor    ${skin} bin
-rerun       ${case_path}/0to1250000.dump dump x y z vx vy vz trim yes
-# rerun       ${case_path}/equip_si_bond-0.0002-kB0.5-damp0.0001-kself0.006.dump dump x y z vx vy vz trim yes
+# rerun       ${case_path}/0to1250000.dump dump x y z vx vy vz trim yes
+rerun       ${case_path}/equip_si_bond-krebs-kself0.dump dump x y z vx vy vz trim yes
