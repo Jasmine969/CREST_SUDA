@@ -29,12 +29,12 @@ dt_net = 1e-4
 r_si = 0.002
 # report error if non-digit-letter-_ is in case_name
 # assert not search('\\w', case_name)
-case_path = f'results/{case_name}'
+case_path = f'../results/{case_name}'
 
 # read global configurations from yaml file
 p_global = None
 if me == 0:
-    with open(f'results/{case_name}.yml', 'r') as f:
+    with open(f'../results/{case_name}.yml', 'r') as f:
         p_global = yaml.safe_load(f)
 p_global = comm.bcast(p_global, root=0)
 assert case_name == p_global['case_name']

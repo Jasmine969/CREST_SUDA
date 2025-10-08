@@ -1,6 +1,6 @@
 """
-Create the inlet (vertical + torus pipe), SI wall, and fluid.
-Bonds bpm/spring.
+Create the inlet & outlet, SI wall, and fluid.
+Bonds bpm/spring with the angle constraint.
 The bond is classified into circumferential (1) and longitudinal (2)
 """
 import my_geometry as gm
@@ -12,6 +12,8 @@ from functools import partial
 
 out = ''
 lmp = lammps(cmdargs=['-screen', 'none', '-log', 'none'])
+
+# parameters ====================
 rho_fluid = 993
 rho_wall = 1040
 l_pipe_hrz = 0.002
@@ -24,6 +26,8 @@ r_torus = 2 * r_catheter
 dl = 2e-4
 l_si = 0.04 - dl
 
+# geometry creation ======================
+# create solids
 pipe_in_vert = gm.CylinderSide(
     r=r_catheter, l_axis=l_pipe_vert, dl=dl, axis='z'
 ).shift(z=r_torus)
@@ -59,7 +63,7 @@ print(log_si)
 l_si = si.l_axis
 
 outlet = inlet.mirror(plane_name='YOZ', plane_pos=l_si / 2)
-
+# create fluid
 r_fluid1 = r_si
 n_axis_fluid1 = int((l_si + 2 * l_pipe_hrz - 2 * dl) / dl + 1)
 l_fluid1 = (n_axis_fluid1 - 1) * dl
@@ -77,6 +81,7 @@ fluid2 = gm.Stack(
 fluid3 = fluid2.mirror(plane_name='YOZ', plane_pos=l_si / 2)
 fluid = gm.Union((fluid1, fluid2, fluid3))
 
+# create atoms in lammps ===========================
 # This buffer is between the geometry bound and the bound of the simulation box
 buffer_region = 0.1 * l_si
 xlo = -(l_pipe_hrz + r_torus + r_si) - buffer_region

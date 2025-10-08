@@ -1,3 +1,10 @@
+"""
+Adapted from the following article:
+    Zarei Eskikand, P., Koussoulas, K., Gwynne, R. M. & Bornstein, J. C.
+    Computational simulations and Ca2+ imaging reveal that slow synaptic
+    depolarizations (slow EPSPs) inhibit fast EPSP evoked action potentials
+    for most of their time course in enteric neurons. PLOS Comput. Biol. 18, e1009717 (2022).
+"""
 from brian2 import *
 from brian2modelfitting import *
 from collections import OrderedDict

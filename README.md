@@ -22,5 +22,5 @@ Closing the feedback loop: CREST, an integrated mechano-physiological framework 
 1. Create a Python virtual environment and then install the required Python packages.
 2. Compile the LAMMPS source code. See `LAMMPS-src/README.md` for details.
 3. Create the geometry and equilibrate the particles by the scripts in `my_work/create_geometry/`.
-4. Customize your configuration file in `my_work/results/` and run the simulation by `my_work/neuron_fluid_brian_rheo.py`.
+4. Customize your configuration file in `my_work/results/` and run the simulation by `my_work/simulation/neuron_fluid_brian_rheo.py`.
 5. Postprocess the results by the scripts in `my_work/postprocess`.

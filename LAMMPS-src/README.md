@@ -88,7 +88,9 @@ First, we should prepare the LAMMPS source code. Assume it is in `../../lammps-2
 
 ```bash
 cp cmake/presets/custom.cmake ../../lammps-2Apr2025/cmake/presets/custom.cmake
+cp src/atom* ../../lammps-2Apr2025/src/
 cp src/RHEO/* ../../lammps-2Apr2025/src/RHEO/
+cp src/BPM/* ../../lammps-2Apr2025/src/BPM/
 cp src_plugins -r ../../lammps-2Apr2025/
 ```
 
@@ -131,7 +133,7 @@ OMP_NUM_THREADS environment is not set. Defaulting to 1 thread.
 We recommend that users install Python from the [official website](https://www.python.org/) and manage packages with venv, rather than using Anaconda, which may sometimes cause unexpected errors. Activate your Python virtual environment, and then (at the directory `build`)
 ```bash
 make install-python
-pip install lammps-2025.7.22xxxxxx.whl
+pip install lammps-2025.4.2xxxxxx.whl
 pip install mpi4py
 ```
 

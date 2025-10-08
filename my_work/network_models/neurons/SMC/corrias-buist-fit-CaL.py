@@ -1,3 +1,10 @@
+"""
+Adapted from the following two articles:
+1.	Corrias, A. & Buist, M. L. A quantitative model of gastric smooth muscle cellular activation.
+        Ann. Biomed. Eng. 35, 1595–1607 (2007).
+2.	Poh, Y. C., Corrias, A., Cheng, N. & Buist, M. L.
+        A quantitative model of human jejunal smooth muscle cell electrophysiology. PLoS ONE 7, e42385 (2012).
+"""
 from brian2 import *
 from brian2modelfitting import *
 from utils.fitting import MSENaNMetric

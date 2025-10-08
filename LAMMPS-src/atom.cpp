@@ -204,13 +204,13 @@ Atom::Atom(LAMMPS *_lmp) : Pointers(_lmp), atom_style(nullptr), avec(nullptr), a
   conductivity = nullptr;
   pressure = nullptr;
   viscosity = nullptr;
-  fbpm = nullptr;
+  fbpm = nullptr; //jsm
 
   // SPH package
 
   rho = drho = esph = desph = cv = nullptr;
   vest = nullptr;
-  fsph = nullptr;
+  fsph = nullptr; //jsm
 
   // AMOEBA package
 
@@ -544,7 +544,7 @@ void Atom::peratom_create()
   add_peratom("conductivity",&conductivity,DOUBLE,0);
   add_peratom("pressure",&pressure,DOUBLE,0);
   add_peratom("viscosity",&viscosity,DOUBLE,0);
-  add_peratom("fbpm",&fbpm,DOUBLE,3);
+  add_peratom("fbpm",&fbpm,DOUBLE,3); //jsm
 
   // SPH package
 
@@ -554,7 +554,7 @@ void Atom::peratom_create()
   add_peratom("desph",&desph,DOUBLE,0,1);             // set per-thread flag
   add_peratom("vest",&vest,DOUBLE,3);
   add_peratom("cv",&cv,DOUBLE,0);
-  add_peratom("fsph",&fsph,DOUBLE,3);
+  add_peratom("fsph",&fsph,DOUBLE,3); //jsm
 
   // MACHDYN package
 
@@ -3086,7 +3086,7 @@ void *Atom::extract(const char *name)
   if (strcmp(name,"conductivity") == 0) return (void *) conductivity;
   if (strcmp(name,"pressure") == 0) return (void *) pressure;
   if (strcmp(name,"viscosity") == 0) return (void *) viscosity;
-  if (strcmp(name,"fbpm") == 0) return (void *) fbpm;
+  if (strcmp(name,"fbpm") == 0) return (void *) fbpm; //jsm
 
   // SPH package
 
@@ -3096,7 +3096,7 @@ void *Atom::extract(const char *name)
   if (strcmp(name,"desph") == 0) return (void *) desph;
   if (strcmp(name,"cv") == 0) return (void *) cv;
   if (strcmp(name,"vest") == 0) return (void *) vest;
-  if (strcmp(name,"fsph") == 0) return (void *) fsph;
+  if (strcmp(name,"fsph") == 0) return (void *) fsph; // jsm
 
   // MACHDYN package
 
@@ -3221,7 +3221,7 @@ int Atom::extract_datatype(const char *name)
   if (strcmp(name,"conductivity") == 0) return LAMMPS_DOUBLE;
   if (strcmp(name,"pressure") == 0) return LAMMPS_DOUBLE;
   if (strcmp(name,"viscosity") == 0) return LAMMPS_DOUBLE;
-  if (strcmp(name,"fbpm") == 0) return LAMMPS_DOUBLE_2D;
+  if (strcmp(name,"fbpm") == 0) return LAMMPS_DOUBLE_2D; //jsm
 
   // SPH package
 
@@ -3231,7 +3231,7 @@ int Atom::extract_datatype(const char *name)
   if (strcmp(name,"desph") == 0) return LAMMPS_DOUBLE;
   if (strcmp(name,"cv") == 0) return LAMMPS_DOUBLE;
   if (strcmp(name,"vest") == 0) return LAMMPS_DOUBLE_2D;
-  if (strcmp(name,"fsph") == 0) return LAMMPS_DOUBLE_2D;
+  if (strcmp(name,"fsph") == 0) return LAMMPS_DOUBLE_2D; //jsm
 
   // MACHDYN package
 

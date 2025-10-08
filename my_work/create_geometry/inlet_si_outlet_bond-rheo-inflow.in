@@ -10,16 +10,8 @@ boundary	f f f
 
 variable        cur_path getenv MY_WORK
 variable        data_path string ${cur_path}/create_geometry/data
-# read_restart ${data_path}/equip_si-rheo_bond2_angle_dl2.0e-04-semifilled.restart
-# read_restart ${data_path}/equip-si-bond2_angle-rheo-krebs-4w.restart
-read_restart ${data_path}/equip-si-bond2_angle-rheo-krebs-12w.restart
-# read_restart ${data_path}/equip-si-bond2_angle-rheo-krebs-28w-22Jul.restart
+read_restart    ${data_path}/equip_si-rheo_bond2_angle_dl2.0e-04-semifilled.restart
 
-# reset_timestep 40000
-# variable  yDisplace atomfile ${data_path}/ydisplace_smooth.csv
-# variable  zDisplace atomfile ${data_path}/zdisplace_smooth.csv
-# variable  vzero atomfile ${data_path}/vzero_smooth.csv
-# fix smooth wall move variable NULL v_yDisplace v_zDisplace NULL v_vzero v_vzero
 # set parameters ======================
 # geometry params
 variable    dL	        equal 2e-4
@@ -41,13 +33,6 @@ variable    c	        equal 5
 variable    rho	        equal 993
 variable    Dt          equal 2e-5
 variable    mu          equal 6.947e-4 # krebs dynamic viscosity
-# variable    mu          equal 8.93e-3 # chyme dynamic viscosity
-# power-law viscosity params
-# variable    mu_max      equal 5e-2
-# variable    mu_min      equal 5e-4
-# variable    K_power     equal 0.105
-# variable    n_power     equal 0.366
-
 variable    zeta        equal 0.5  # artificial viscosity
 variable    kB1         equal 0.25 # circumferential
 variable    kB2         equal 0.5 # longitudinal
@@ -98,7 +83,6 @@ angle_coeff 1 ${kA} ${theta_eq} x ${n_yz}
 fix     rheo all rheo ${cut} quintic 0 density ${rho} ${rho} ${rho} speed/sound $c $c $c &
         fixed/vel 1 0 0
 fix     visc all rheo/viscosity * constant ${mu}
-# fix     visc all rheo/viscosity * power_openfoam ${mu_min} ${mu_max} ${K_power} ${n_power}
 fix     press all rheo/pressure * tait/water
 # set the force of fluid
 fix     G_fluid fluid gravity -9.81 vector 0 0 1
@@ -147,21 +131,19 @@ compute     visc all rheo/property/atom viscosity
 # wall strain
 variable    strain atom (v_rc-v_r_si)/v_r_si
 variable    senseID atom ceil((id-v_n_inlet)/v_n_yz/v_n_sense_each)
-variable ifSense atom (v_senseID<97 && v_senseID>4)
-group   sense variable ifSense
+variable    ifSense atom (v_senseID<97 && v_senseID>4)
+group       sense variable ifSense
 compute     senseID wall chunk/atom v_senseID nchunk once ids once
 fix         strainAvg wall ave/chunk/preforce 1 1 1 senseID v_strain
 compute     strainAvg wall chunk/spread/atom senseID f_strainAvg[2]
-compute strainMin sense reduce  min c_strainAvg
-compute strainMax sense reduce  max c_strainAvg
-compute strainAvesq sense reduce avesq c_strainAvg
-compute strainAve sense reduce ave c_strainAvg
-variable strainVar equal c_strainAvesq-c_strainAve^2
+compute     strainMin sense reduce  min c_strainAvg
+compute     strainMax sense reduce  max c_strainAvg
+compute     strainAvesq sense reduce avesq c_strainAvg
+compute     strainAve sense reduce ave c_strainAvg
+variable    strainVar equal c_strainAvesq-c_strainAve^2
 
-group outlet_fluid dynamic fluid region outlet
+group       outlet_fluid dynamic fluid region outlet
 compute     zmax_fluid outlet_fluid reduce max z
-# variable vmag atom sqrt(vx^2+vy^2+vz^2)
-# compute vMax wall reduce  max v_vmag
 
 # output =================================
 # global output
@@ -183,8 +165,8 @@ dump_modify	 my_dump format float %.6e
 timestep    ${Dt}
 neighbor    ${skin} bin
 
-# run         2000
-# write_restart ${data_path}/equip-si-bond2_angle-rheo-krebs-2k.restart
+run         2000
+write_restart ${data_path}/equip-si-bond2_angle-rheo-krebs-2k.restart
 # fully-developed inflow
 molecule    mymol  ${data_path}/layer0.mol ${data_path}/layer1.mol &
                    ${data_path}/layer2.mol ${data_path}/layer3.mol &
@@ -210,7 +192,7 @@ thermo_style	custom step press atoms &
 thermo_modify	norm no
 restart 20000 ${data_path}/equip-si-bond2_angle-rheo-krebs-1.restart &
               ${data_path}/equip-si-bond2_angle-rheo-krebs-2.restart
-run     0
+run     80000
 
 # run 1
 # unfix smooth
