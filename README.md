@@ -12,6 +12,7 @@ Closing the feedback loop: CREST, an integrated mechano-physiological framework 
 ├─my_work 				// Workflow
 │  ├─create_geometry 	// LAMMPS geometry construction and equilibration
 │  ├─network_models 	// Models of various neurons and synapses
+│  ├─simulation			// Simulation scripts
 │  ├─postprocess 		// Postprocessing scripts
 │  └─results 			// Configuration files and corresponding results
 └─utils 				// Utility functions

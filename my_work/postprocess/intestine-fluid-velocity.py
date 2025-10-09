@@ -8,6 +8,8 @@ import multiprocessing as mp
 from time import time, asctime, localtime
 import gc
 
+n_x = 200
+case_name = 'rheo_bond2_angle-F100-krebs-noICC-28w-ringstrain'
 host2path = {
     'LAPTOP-1QA0JPIO': 'F:/intestine_results',
     'DESKTOP-EHK58OI': 'F:/EntericNervousSystem/my_work/results',
@@ -18,16 +20,14 @@ if hostname in host2path:
     RES_PATH: str = host2path[gethostname()]
 else:
     RES_PATH = '../my_work/results'
+case_path = f'{RES_PATH}/{case_name}'
 
-n_x = 200
-case_name = 'rheo_bond2_angle-F100-chymepower-noICC-30w-ringstrain'
-path = f'{RES_PATH}/{case_name}'
-if not os.path.exists(f'{path}/intestine-fluid-velocity.pvsm'):
+if not os.path.exists(f'{case_path}/intestine-fluid-velocity.pvsm'):
     paraview.simple._DisableFirstRenderCameraReset()
     # read dump file
     reader = VisItLAMMPSDumpReader(
         registrationName='reader',
-        FileName=f'{path}/0to1250000.dump',
+        FileName=f'{case_path}/0to1250000.dump',
         Meshes=['mesh'],
         PointArrays=['c_p', 'c_rho', 'mass',
                      'species', 'vx', 'vy', 'vz', 'x', 'y', 'z']
@@ -94,7 +94,7 @@ if not os.path.exists(f'{path}/intestine-fluid-velocity.pvsm'):
     )
     Hide(sphInterpFluid, renderView1)
     isoVolumeFluidDisplay = Show(isoVolumeFluid, renderView1)
-    SaveState(f'{path}/intestine-fluid-velocity.pvsm')
+    SaveState(f'{case_path}/intestine-fluid-velocity.pvsm')
     ResetSession()
 
 
@@ -104,7 +104,7 @@ def process(frame):
     results = []
     try:
         print(f"{asctime(localtime())} | Proc {me} starts to process step {frame}")
-        LoadState(f'{path}/intestine-fluid-velocity.pvsm')
+        LoadState(f'{case_path}/intestine-fluid-velocity.pvsm')
         tk = GetTimeKeeper()
         timesteps = tk.TimestepValues
         animationScene1 = GetAnimationScene()
@@ -113,6 +113,9 @@ def process(frame):
         renderView1.Update()
         isoVolumeFluid = FindSource('IsoVolumeFluid')
         xs = np.arange(n_x) * 2e-4
+
+        # SurfaceFlow must be operated on one single slice
+        # Calculate once for each slice
         for i_x, x in enumerate(xs):
             slice = Slice(
                 registrationName='slice',
@@ -129,7 +132,7 @@ def process(frame):
                 SelectInputVectors=['POINTS', 'v']
             )
             flow_array = servermanager.Fetch(flow).GetPointData().GetArray("Surface Flow")
-            results.append(flow_array.GetValue(0)*1e9)   # uL/s
+            results.append(flow_array.GetValue(0) * 1e9)  # uL/s
             elapsed = time() - start_time
             for obj in ['slice', 'flow']:
                 exec(f'Delete({obj})')
@@ -161,4 +164,4 @@ if __name__ == '__main__':
         flow_rates[i] = val.get()
     pool.close()
     pool.join()
-    np.save(f'{path}/flow-rates-paraview', flow_rates)
+    np.save(f'{case_path}/flow-rates-paraview', flow_rates)

@@ -1,3 +1,4 @@
+"""Create Supplementary Figure 5"""
 from my_work.network_models.Motility_Model_noICC_diagnostics import MotilityModel
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import mark_inset

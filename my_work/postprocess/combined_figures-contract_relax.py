@@ -1,4 +1,4 @@
-from literature_plot import *
+from literature_plot import plot_JP2004
 from visualize_interface import contraction_relaxation_vel, strain_single_ring
 from visual_sph import plot_force_strain_ring, case_path
 import matplotlib.pyplot as plt

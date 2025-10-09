@@ -150,7 +150,7 @@ if go_on_from_step:
     tensions = list(st['tension'])
 else:
     lmp.commands_string(f"""
-    read_restart create_geometry/data/{p_global['restart_file']}
+    read_restart   ../create_geometry/data/{p_global['restart_file']}
     reset_timestep 0
     """)
     strains = []

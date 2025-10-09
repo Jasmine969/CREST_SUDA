@@ -312,7 +312,7 @@ def extract_force_strain_atom(ringID=116, atomID=11238):
         if if_print:
             print(f'F_viscoelastic={F_bond_mag * unit_scale: .1f} {unit_name}')
 
-        # self-spring restoring force
+        # restoring force
         fy_restore = data.particles['v_fry'].array.item()
         fz_restore = data.particles['v_frz'].array.item()
         df_force.loc[frame, 'restoring-y'] = fy_restore

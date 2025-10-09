@@ -14,6 +14,7 @@ w_img, h_img = int(1500 * scale_factor), int(400 * scale_factor)
 
 
 def init_worker(log_queue):
+    """Initialize the logger"""
     logger = logging.getLogger()
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
@@ -32,21 +33,21 @@ if hostname in host2path:
     RES_PATH: str = host2path[gethostname()]
 else:
     RES_PATH = '../my_work/results'
-
+case_path = f'{RES_PATH}/{case_name}'
 if transparent_bg:
     png_folder = 'png-fluid-wall_transparent'
     svg_folder = 'svg-fluid-wall_transparent'
 else:
     png_folder = 'png-fluid-wall'
     svg_folder = 'svg-fluid-wall'
-os.makedirs(f'{path}/{png_folder}', exist_ok=True)
-os.makedirs(f'{path}/{svg_folder}', exist_ok=True)
-if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
+os.makedirs(f'{case_path}/{png_folder}', exist_ok=True)
+os.makedirs(f'{case_path}/{svg_folder}', exist_ok=True)
+if not os.path.exists(f'{case_path}/intestine-fluid-wall.pvsm'):
     paraview.simple._DisableFirstRenderCameraReset()
-    # 读取文件
+    # read dump file
     reader = VisItLAMMPSDumpReader(
         registrationName='reader',
-        FileName=f'{path}/0to1250000.dump',
+        FileName=f'{case_path}/0to1250000.dump',
         Meshes=['mesh'],
         PointArrays=['c_p', 'c_rho', 'mass',
                      'species', 'vx', 'vy', 'vz', 'x', 'y', 'z']
@@ -55,17 +56,15 @@ if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
     timesteps = tk.TimestepValues
     animationScene1 = GetAnimationScene()
     animationScene1.AnimationTime = timesteps[1]
-    # 显示结果
     renderView1 = GetActiveViewOrCreate('RenderView')
     readerDisplay = Show(reader, renderView1)
     readerDisplay.Representation = 'Point Gaussian'
-    readerDisplay.GaussianRadius = 1e-4  # 与dL保持一致
-    # 将视图缩放到合适的视角
+    readerDisplay.GaussianRadius = 1e-4
     renderView1.ResetCamera()
-
+    # screen out the fluid
     threshFluid = Threshold(
         registrationName='threshFluid',
-        Input=reader,  # 如果不指定Input，默认为active source
+        Input=reader,
         Scalars='species',
         ThresholdMethod='Above Upper Threshold',
         UpperThreshold=1.5
@@ -73,7 +72,7 @@ if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
     Hide(reader, renderView1)
     threshFluidDisplay = Show(threshFluid, renderView1)
     threshFluidDisplay.Representation = 'Point Gaussian'
-    threshFluidDisplay.GaussianRadius = 1e-4  # 与dL保持一致
+    threshFluidDisplay.GaussianRadius = 1e-4
     renderView1.ResetCamera(1)
 
     mergeV = MergeVectorComponents(
@@ -85,7 +84,7 @@ if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
     Hide(threshFluid, renderView1)
     mergeVDisplay = Show(mergeV, renderView1)
     mergeVDisplay.Representation = 'Point Gaussian'
-    mergeVDisplay.GaussianRadius = 1e-4  # 与dL保持一致
+    mergeVDisplay.GaussianRadius = 1e-4
     renderView1.ResetCamera(1)
 
     sphInterpFluid = SPHVolumeInterpolator(
@@ -146,7 +145,6 @@ if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
     arrowDisplay = Show(arrow, renderView1)
     Hide(clipFluid, renderView1)
     ColorBy(arrowDisplay, ('POINTS', 'v', 'Magnitude'))
-    # # ColorBy pressure
     # get color transfer function/color map for 'v'
     vCMap = GetColorTransferFunction('v')
     vCMap.RescaleTransferFunction(0, 0.025)
@@ -160,25 +158,25 @@ if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
     vBar.ScalarBarThickness = 20
     vBar.TitleColor = [0.0, 0.0, 0.0]
     vBar.LabelColor = [0.0, 0.0, 0.0]
-    # vBar.TitleFontFamily = 'File'
     vBar.TitleFontSize = 23
-    # 自定义位置
     vBar.WindowLocation = 'Any Location'
     vBar.Position = [0.17, 0.75]
 
     # Solid ====================================
     threshSolid = Threshold(
         registrationName='threshSolid',
-        Input=reader,  # 如果不指定Input，默认为active source
+        Input=reader,
         Scalars='species',
         ThresholdMethod='Below Lower Threshold',
         LowerThreshold=1.5
     )
     threshSolidDisplay = Show(threshSolid, renderView1)
     threshSolidDisplay.Representation = 'Point Gaussian'
-    threshSolidDisplay.GaussianRadius = 1e-4  # 与dL保持一致
+    threshSolidDisplay.GaussianRadius = 1e-4
     renderView1.ResetCamera()
 
+    # SPH interpolation is done to form the continuum, but the resultant strain is not correct.
+    # We correct it in the ProgrammableFilter
     sphInterpSolid = SPHVolumeInterpolator(
         registrationName='sphInterpSolid',
         Input=threshSolid,
@@ -195,14 +193,13 @@ if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
     sphInterpSolid.Source.CellSize = 5e-5
     Hide(threshSolid, renderView1)
     sphInterpoSolidDisplay = Show(sphInterpSolid, view=renderView1)
-    # trace defaults for the display properties.
     sphInterpoSolidDisplay.Representation = 'Volume'
 
     isoVolumeSolid = IsoVolume(
         registrationName='isoVolumeSolid',
         Input=sphInterpSolid,
         InputScalars='Shepard Summation',
-        ThresholdRange=[0.7, 100]  # 先设一个比较大的，对于每一帧根据得到的厚度调整
+        ThresholdRange=[0.7, 100]
     )
     Hide(sphInterpSolid, renderView1)
     isoVolumeSolidDisplay = Show(isoVolumeSolid, renderView1)
@@ -235,7 +232,7 @@ if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
         input0 = inputs[0]
         frame = get_frame(input0, 5000)
         id_strain = int(frame * 100 - 1)
-        strain = np.load('{path}/interface/strain_tension_1250000.npz')['strain'][id_strain]
+        strain = np.load('{case_path}/interface/strain_tension_1250000.npz')['strain'][id_strain]
         interp = pchip(2e-4 * np.arange(200), strain)
         x = vtk_to_numpy(input0.GetBlock(0).GetPoints().GetData())[:,0]
         output.PointData.append(interp(x), "mystrain")
@@ -275,7 +272,6 @@ if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
     strainBar.TitleColor = [0.0, 0.0, 0.0]
     strainBar.LabelColor = [0.0, 0.0, 0.0]
     strainBar.TitleFontSize = 23
-    # 自定义位置
     strainBar.WindowLocation = 'Any Location'
     strainBar.Position = [0.5, 0.75]
 
@@ -291,11 +287,11 @@ if not os.path.exists(f'{path}/intestine-fluid-wall.pvsm'):
     renderView1.CameraFocalPoint = [0.02, 0.00113, 0]
     renderView1.CameraViewUp = [0.0, 0.0, 1.0]
     renderView1.CameraParallelScale = 0.02
-    # 设置背景色为白色
+    # Set the background color to white
     renderView1.UseColorPaletteForBackground = 0
     renderView1.Background = [1.0, 1.0, 1.0]
     renderView1.OrientationAxesVisibility = 0
-    SaveState(f'{path}/intestine-fluid-wall.pvsm')
+    SaveState(f'{case_path}/intestine-fluid-wall.pvsm')
     ResetSession()
 
 
@@ -305,18 +301,18 @@ def process(step):
     logger = logging.getLogger()
     logger.info(f'Proc {me} starts to process step {step}')
     try:
-        LoadState(f'{path}/intestine-fluid-wall.pvsm')
+        LoadState(f'{case_path}/intestine-fluid-wall.pvsm')
         tk = GetTimeKeeper()
         timesteps = tk.TimestepValues
         animationScene1 = GetAnimationScene()
         animationScene1.AnimationTime = timesteps[step]
         renderView1 = GetActiveViewOrCreate('RenderView')
         renderView1.Update()
-        SaveScreenshot(filename=f'{path}/{png_folder}/wallSI{step:03}.png',
+        SaveScreenshot(filename=f'{case_path}/{png_folder}/wallSI{step:03}.png',
                        viewOrLayout=renderView1, ImageResolution=[w_img, h_img],
                        TransparentBackground=transparent_bg, CompressionLevel=0)
         if step == 6: # export svg only once because only colorbar is svg
-            ExportView(filename=f'{path}/{svg_folder}/wallSI{step:03}.svg',
+            ExportView(filename=f'{case_path}/{svg_folder}/wallSI{step:03}.svg',
                view=renderView1)
         logger.info(f'{me} finished timestep {step}, time elapsed: {time() - t0_me} s')
         for obj in ['renderView1', 'animationScene1']:
@@ -344,8 +340,8 @@ if __name__ == '__main__':
             initializer=init_worker,
             initargs=(log_queue,),
     ) as pool:
-        # pool.map(process, range(1, 251, 1))
-        pool.map(process, [6, 115, 200])
+        pool.map(process, range(1, 251, 1))
+        # pool.map(process, [6, 115, 200])
     listener.stop()
     file_handler.close()
     manager.shutdown()
