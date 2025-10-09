@@ -39,10 +39,10 @@ if me == 0:
 p_global = comm.bcast(p_global, root=0)
 assert case_name == p_global['case_name']
 dt_lmp = p_global['dt_lmp']
-# save restart and state files every this time_step
+# save restart and state files every this many time_step
 save_interval = p_global['save_interval']
 dmp_interval = p_global['dmp_interval']
-# display params
+# log params
 mylog_interval = p_global['mylog_interval']
 # couple params
 force_factor = p_global['force_factor']
