@@ -3,17 +3,18 @@ case_name: rheo_bond2_angle-F100-krebs-noICC-28w-ringstrain
 # run
 n_step: 1250000
 go_on_from_step: 0
-restart_file: equip-si-bond2_angle-rheo-krebs-28w.restart
 
-# I/O
+# output
 save_interval: 50000
 dmp_interval: 5000
+mylog_interval: 250
 
 # couple
 force_factor: 1.0e-4
 N_callback_lmp: 50
 
 # mechanics params
+restart_file: equip-si-bond2_angle-rheo-krebs-28w.restart
 dt_lmp: 2.0e-5
 soft: 6.0e-10
 mu: 6.947e-4 # viscosity
@@ -24,14 +25,11 @@ k2_self: 18
 kA: 1.6e-8
 balance: yes
 
-# network params
+# physiology params
 n_sense_each: 2
-ring_sense_start: 9
+ring_sense_start: 8
 JPalpha: 90
 V_half_EJP: -45
 V_half_IJP: -60
 w_boundary1: 1
 w_boundary2: 1
-
-# display
-mylog_interval: 250

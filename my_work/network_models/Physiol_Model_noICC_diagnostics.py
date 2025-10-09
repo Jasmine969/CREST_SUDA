@@ -11,7 +11,7 @@ delete ICC
 """
 
 
-def MotilityModel(
+def PhysiolModel(
         go_on,
         force_factor=5e-5,
         V_half_EJP=-45, V_half_IJP=-55,
@@ -524,7 +524,7 @@ if __name__ == '__main__':
     # del net_params['IJP_alpha']
     # net_params['V_half_EJP'] = -45
     # net_params['V_half_IJP'] = -60
-    net = MotilityModel(False, **net_params)
+    net = PhysiolModel(False, **net_params)
     st = np.load(f'{RES_PATH}/{case_name}/interface/strain_tension_{read_step}.npz')
     strain = st['strain'][:, (ring_sense_start - 1):-(ring_sense_start - 1)].reshape(25000, 92, 2).mean(axis=-1)
     distension = TimedArray(strain[int(go_on_from_step / N_callback_lmp):], dt=1 * ms)

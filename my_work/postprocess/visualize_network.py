@@ -8,7 +8,7 @@ from functools import partial
 from tqdm import tqdm
 import os
 import numpy as np
-from my_work.network_models.Motility_Model_noICC_diagnostics import MotilityModel
+from my_work.network_models.Physiol_Model_noICC_diagnostics import PhysiolModel
 from brian2.units import ms, mV, nA, uM
 import pickle
 from utils.result_path import RES_PATH
@@ -23,7 +23,7 @@ go_on_from_step = 0
 read_step = 1250000
 with open(f'{case_path}/net_params.pkl', 'rb') as f:
     net_params = pickle.load(f)
-net = MotilityModel(False, **net_params)
+net = PhysiolModel(False, **net_params)
 # with open(f'{case_path}/state/net_{read_step}.pkl', 'rb') as pf_state:
 #     net.set_states(pickle.load(pf_state))
 net.restore(filename=f'{case_path}/store/net_{go_on_from_step}to{read_step}.store')
@@ -52,14 +52,6 @@ t_spikeAIN = t_spikeSN[:neuron_pop]
 t_spikeDIN = t_spikeSN[neuron_pop:neuron_pop * 2]
 t_spikeECMN = t_spikeSN[neuron_pop * 2:neuron_pop * 3]
 t_spikeICMN = t_spikeSN[neuron_pop * 3:]
-
-
-# np.save(f'{case_path}/distension', DSTND)
-#
-# import pickle
-#
-# with open(f'{case_path}/tspikes.pkl', 'wb') as f:
-#     pickle.dump([t_spikeSN[key] / ms for key in range(92 + 72, 92 + 76)], f)
 
 
 def visualize_dynamics(draw_ICC):
@@ -228,102 +220,6 @@ def visualize_dynamics(draw_ICC):
         # plt.show()
 
 
-def calc_freq(t_spike):
-    # t_spike = t_spike[t_spike > 3600]
-    fq = t_spike.size / ((t_spike[-1] - t_spike[0]) / 1000)
-    return fq  # Hz
-
-
-def draw_ICC():
-    plt.rc('font', size=20, family='Arial')
-    font_label = {'size': 23, 'family': 'Arial'}
-    plt.rc('lines', lw=2)
-    fig, ax = plt.subplot_mosaic(
-        [['V'], ['I'], ['h'], ['cGMP']],
-        layout='constrained', sharex=True)
-    ids = [0, 10]
-    ax['V'].plot(t, vICC[ids].T)
-    ls = ['-', '--']
-    for i, i_ICC in enumerate(ids):
-        ax['I'].plot(t, net['mICC'].I_SOC[i_ICC] / nA, f'C0{ls[i]}', label='SOC')
-        ax['I'].plot(t, net['mICC'].I_ANO1[i_ICC] / nA, f'C1{ls[i]}', label='ANO1')
-        ax['I'].plot(t, net['mICC'].I_CaT[i_ICC] / nA, f'C2{ls[i]}', label='CaT')
-        ax['I'].plot(t, net['mICC'].I_Kb[i_ICC] / nA, f'C3{ls[i]}', label='Kb')
-        ax['I'].plot(t, net['mICC'].I_Nab[i_ICC] / nA, f'C4{ls[i]}', label='Nab')
-        ax['I'].plot(t, net['mICC'].I_NSV[i_ICC] / nA, f'C5{ls[i]}', label='NSV')
-        ax['I'].plot(t, net['mICC'].I_GJ_ICC_ICC[i_ICC] / nA, f'C6{ls[i]}', label='GJ_ICC_ICC')
-        ax['I'].plot(t, net['mICC'].I_GJ_SMC_ICC[i_ICC] / nA, f'C7{ls[i]}', label='GJ_SMC_ICC')
-    ax['I'].legend(loc='best', prop=font_label)
-    ax['h'].plot(t, net['mICC'].h_ANO1[ids].T)
-    ax['cGMP'].plot(t, net['mICC'].cGMP[ids].T)
-    plt.show()
-
-
-def raster_plot_tension(enlarge, colorbar=True):
-    tension = TSMC * 1e6
-    print(tension.max())
-    plt.rc('font', **font_ticks)
-    figsize = (12, 4.5) if enlarge else (12, 9)
-    fig, ax1 = plt.subplots(figsize=figsize)
-    ims = ax1.imshow(
-        tension, aspect='auto',
-        cmap='binary',
-        vmin=0, vmax=10
-    )
-    if colorbar:
-        cb = plt.colorbar(ims, pad=0.1, shrink=0.7, anchor=(0.0, 0.9))
-        cb.set_label('Active force (μN)', fontdict=font_label)
-    ax1.set_xlabel('Time (s)', fontdict=font_label)
-    ax1.set_ylabel('x (mm)', fontdict=font_label)
-    msize = 6 if enlarge else 2.5
-    opacity = 0.8 if enlarge else 0.5
-    delta_y = 0.2 if enlarge else 0.4
-    ax2 = ax1.twinx()
-    linelength = 0.17
-    linewidth = 8
-    # indices start from 0
-    ax2.eventplot(t_spikeECMN, lineoffsets=np.arange(neuron_pop) - delta_y, colors='C0',
-                  linelengths=linelength, linewidth=linewidth, alpha=opacity)
-    ax2.eventplot(t_spikeICMN, lineoffsets=np.arange(neuron_pop), colors='C1',
-                  linelengths=linelength, linewidth=linewidth, alpha=opacity)
-    ax2.eventplot(t_spikeIPAN, lineoffsets=np.arange(neuron_pop) + delta_y, colors='C4',
-                  linelengths=linelength, linewidth=linewidth, alpha=opacity)
-    # ax2.plot(t_spikeECMN[:, 0], t_spikeECMN[:, 1] - delta_y, 'C0s', ms=msize, alpha=opacity)
-    # ax2.plot(t_spikeICMN[:, 0], t_spikeICMN[:, 1], 'C1s', ms=msize, alpha=opacity)
-    # ax2.plot(t_spikeIPAN[:, 0], t_spikeIPAN[:, 1] + delta_y, 'C4s', ms=msize, alpha=opacity)
-    ax2.invert_yaxis()
-    ax1.set_ylabel('SMC index', fontdict=font_label)
-    ax2.set_ylabel('Neuron index', fontdict=font_label)
-    if enlarge:
-        neu_min, neu_max = 30 - 4, 30 + 2
-        smc_min, smc_max = neu_min * 2 - 1, neu_max * 2
-        t_min, t_max, dt = 2.6, 5., 0.4
-        ax1.set_xlim(np.array([t_min, t_max]) * 1000)
-        ax1.set_ylim([smc_max - 0.5, smc_min - 1.5])
-        ax2.set_ylim([neu_max - 0.5, neu_min - 1.5])
-        ax1.set_xticks(np.arange(t_min, t_max + dt * 0.5, dt) * 1000)
-        ax1.set_xticklabels([f'{each:.1f}' for each in np.arange(t_min, t_max + dt, dt)], fontdict=font_ticks)
-        ax1.set_yticks(np.arange(smc_min, smc_max + 1, 4) - 1)
-        ax1.set_yticklabels(np.arange(smc_min, smc_max + 1, 4), fontdict=font_ticks)
-        ax2.set_yticks(np.arange(neu_min, neu_max + 1, 2) - 1)
-        ax2.set_yticklabels(np.arange(neu_min, neu_max + 1, 2), fontdict=font_ticks)
-        filename = f'raster_STmap_enlarge_smc{smc_min}_{smc_max}.png'
-    else:
-        ax1.set_xlim([0, 10000])
-        ax1.set_ylim([199.5 - 16, -0.5])
-        ax2.set_ylim([99.5 - 8, -0.5])
-        ax1.set_xticks(np.arange(0, 10001, 2000))
-        ax1.set_xticklabels(np.arange(0, 11, 2, dtype=int), fontdict=font_ticks)
-        ax1.set_yticks(np.arange(0, 201 - 16, 60))
-        ax1.set_yticklabels(np.arange(0, 201 - 16, 60), fontdict=font_ticks)
-        ax2.set_yticks(np.arange(0, 101 - 8, 30))
-        ax2.set_yticklabels(np.arange(0, 101 - 8, 30), fontdict=font_ticks)
-        filename = 'raster_STmap.png'
-    plt.tight_layout()
-    plt.savefig(f'{RES_PATH}\\{case_name}\\{filename}', transparent=True)
-    plt.show()
-
-
 def draw_SMC(id_SMC=60):
     fig, ax = plt.subplots(7, 1, sharex=True)
     id_CMN = id_SMC // 2
@@ -482,29 +378,6 @@ def SMC_network_paper(id_SMC):
     plt.show()
 
 
-def draw_SMCs():
-    fig, ax = plt.subplots(3, 1, sharex=True)
-    ax[0].plot(t, vICC[100:114].T)
-    ax[1].plot(t, vSMC[100:114].T)
-    ax[2].plot(time_Tavg, TSMC[100:114].T)
-    plt.show()
-
-
-def drawIPAN(ind=0):
-    fig, ax = plt.subplots(3, 1, sharex=True)
-    for ind, ls in zip([39, 40], ['-', '--']):
-        ax[0].plot(t, DSTND[ind], ls=ls)
-        ax[1].plot(t, vIPAN[ind], ls=ls)
-        ax[2].plot(t, net['mIPAN'].I_Na[ind] / nA, 'C0', label='Na', ls=ls)
-        ax[2].plot(t, net['mIPAN'].I_K[ind] / nA, 'C1', label='K', ls=ls)
-        ax[2].plot(t, net['mIPAN'].I_KA[ind] / nA, 'C2', label='KA', ls=ls)
-        ax[2].plot(t, net['mIPAN'].I_SAC[ind] / nA, 'C3', label='SAC', ls=ls)
-        ax[2].plot(t, net['mIPAN'].I_EPSP[ind] / nA, 'C4', label='EPSP', ls=ls)
-        ax[2].plot(t, net['mIPAN'].I_AH[ind] / nA, 'C5', label='AH', ls=ls)
-        ax[2].legend(loc='best')
-    plt.show()
-
-
 def calcium_map(ax=None, vline=None):
     """
     :param ax: external, optional
@@ -637,14 +510,9 @@ def draft():
 
 if __name__ == '__main__':
     # visualize_dynamics(draw_ICC=False)
-    # draw_ICC()
-    # raster_plot_tension(enlarge=False, colorbar=True)
-    # drawIPAN(ind=29)
     # draw_SMC(id_SMC=59)
     # SMC_details_paper(id_SMC=24, bars=False)
     SMC_network_paper(id_SMC=59)
-    # draw_SMCs()
     # calcium_map()
     # plot_activation_window(waveID_global=5, use_reverse_waveID=True)
     # draft()
-    # pass

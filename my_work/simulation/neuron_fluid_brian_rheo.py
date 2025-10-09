@@ -15,7 +15,7 @@ from pathlib import Path
 
 root_path = Path(os.getenv('MY_WORK')).parent
 sys.path.append(str(root_path))
-from my_work.network_models.Motility_Model_noICC import MotilityModel
+from my_work.network_models.Physiol_Model_noICC import PhysiolModel
 from utils.utils import format_time
 
 comm = MPI.COMM_WORLD
@@ -54,15 +54,13 @@ assert N_callback_net * dt_net == dt_couple
 n_ring = int(n_wall / n_yz)
 assert n_wall == n_yz * n_ring
 n_sense_each = p_global['n_sense_each']
-ring_sense_start = p_global['ring_sense_start']  # 9
-ring_sense_end = n_ring - (ring_sense_start - 1)  # 192
+ring_sense_start = p_global['ring_sense_start']  # 8
+ring_sense_end = n_ring - 1 - ring_sense_start  # 191
 n_sense = int((ring_sense_end + 1 - ring_sense_start) / n_sense_each)  # 92
 n_muscle_each = int(n_sense_each / 2)
 assert n_muscle_each * 2 == n_sense_each
-gr_sense_start = int(ring_sense_start / n_sense_each) + 1  # 5
-gr_sense_end = int(ring_sense_end / n_sense_each)  # 96
-id_sense_start = int(n_inlet + (ring_sense_start - 1) * n_yz + 1)
-id_sense_end = int(n_inlet + ring_sense_end * n_yz)
+id_sense_start = int(n_inlet + ring_sense_start * n_yz + 1)
+id_sense_end = int(n_inlet + (ring_sense_end + 1) * n_yz)
 id_wall = np.arange(n_inlet, n_inlet + n_wall) + 1
 assert id_wall[n_yz * (ring_sense_start - 1)] == id_sense_start
 assert id_wall[n_yz * ring_sense_end - 1] == id_sense_end
@@ -84,10 +82,6 @@ if me == 0:
         'dt_couple': dt_couple,
         'dt_net': dt_net,
     }
-    if 'w_cGMP_ICC' in p_global:
-        net_params.update({
-            'w_cGMP_ICC': p_global['w_cGMP_ICC']
-        })
 
 # go_on_from_step==0 if ab initio
 go_on_from_step = p_global['go_on_from_step']
@@ -133,7 +127,7 @@ if comm.size > 1 and not p_global['balance']:
 # neurons
 net = None
 if me == 0:
-    net = MotilityModel(go_on_from_step, **net_params)
+    net = PhysiolModel(go_on_from_step, **net_params)
 if go_on_from_step:
     lmp.command(f'read_restart {case_path}/restart/{go_on_from_step}.restart')
     if me == 0:
@@ -282,12 +276,8 @@ def callback(caller, step, nlocal, tag, x, fext):
             tension_display = '\t'.join(f'{i:<4.1f}' for i in f_mag[tension_id] * 1e6)
             vSMC = np.repeat(net['SMC'].v / mV, n_muscle_each)
             vSMC_display = '\t'.join(f'{i:<5.1f}' for i in vSMC[tension_id])
-            # vICC = np.repeat(net['ICC'].v / mV, n_muscle_each)
-            # vICC_display = '\t'.join(f'{i:<5.1f}' for i in vICC[tension_list])
             value_info += (
-                # f"vICC_max\t\t{(net['ICC'].v / mV).argmax()}\t{(net['ICC'].v / mV).max():.1f}\n"
                 f"{tension_head}\n"
-                # f"{vICC_display}\n"
                 f"vSMC_max/mV\t\t{(net['SMC'].v / mV).argmax()}\t{(net['SMC'].v / mV).max():.1f}\n"
                 f"{vSMC_display}\n"
                 f"tension_max (uN)\t\t{f_mag.argmax()}\t{f_mag.max() * 1e6:.1f}\n"

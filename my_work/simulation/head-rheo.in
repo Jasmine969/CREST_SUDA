@@ -1,5 +1,5 @@
-# variable    plug_path getenv LMP_PLUGIN_RELEASE_PATH
-variable    plug_path string /data/software/lammps-2Apr2025/src_jsm/build_release
+variable    plug_path getenv LMP_PLUGIN_RELEASE_PATH
+# variable    plug_path string /data/software/lammps-2Apr2025/src_jsm/build_release
 plugin load     ${plug_path}/rhonorm_plugin.so ${plug_path}/inflow_plugin.so &
                 ${plug_path}/avechunk_plugin.so ${plug_path}/angle_concave_plugin.so                
 

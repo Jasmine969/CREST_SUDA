@@ -105,23 +105,6 @@ def interpolate_tension(points):
     return tension_finer(points)
 
 
-def strain_single_ring(ringID, diameter=False, ax=None):
-    if ax is None:
-        plt.rc('font', **font_ticks)
-        fig, ax = plt.subplots()
-        external_ax = False
-    else:
-        external_ax = True
-    if diameter:
-        ax.plot((1 + strain[:, ringID]) * r_si * 2)
-    else:
-        ax.plot(strain[:, ringID])
-    if not external_ax:
-        ax.set_xlabel('Time (ms)', fontdict=font_label)
-        ax.set_ylabel('Diameter (mm)' if diameter else 'Strain', fontdict=font_label)
-        plt.show()
-
-
 def compute_wave_vel(ax=None):
     """
     Compute the wave velocity as Supplementary Note 3.
@@ -684,24 +667,19 @@ if __name__ == '__main__':
     strain_map()
     # plt.show()
     # interpolate_ring_strain(np.array([[1, 3]]))
-    # strain_single_ring([8])
     # fig, ax = plt.subplots()
     # compute_wave_vel()
     # waveID_global2local()
-    # contraction_rate()
-    # contration_relaxation_vel()
     # extract_wave_front(np.array([[10000, 2], [20000, 50]]))
-    # wave_vel_paper_old()
     # wave_vel_paper()
     # plt.xlabel('Time (s)')
     # plt.ylabel('Wave velocity (mm/s)')
     # plt.show()
-
+    #
     # tension_map()
     # fig, ax = plt.subplots(2, 1, sharex=True, layout='constrained')
     # plot_strain_troughs(waveID_global=5, use_reverse_waveID=True)
     # plot_tension_peaks(waveID_global=5, use_reverse_waveID=True)
-    # plot_peak_tension(need_peak_same_wave=[5], ax=ax[1])
     # plt.show()
     # plot_strain_multiframe(frames=list(range(17400-1, 18000, 100)), ringIDmin=25, ringIDmax=37)
     # plot_tension_multiframe(frames=list(range(17400 - 1, 18000, 100)), ringIDmin=25, ringIDmax=37)

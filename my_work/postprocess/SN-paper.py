@@ -1,5 +1,5 @@
 """Create Supplementary Figure 5"""
-from my_work.network_models.Motility_Model_noICC_diagnostics import MotilityModel
+from my_work.network_models.Physiol_Model_noICC_diagnostics import PhysiolModel
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 from brian2.units import ms, mV, nA
@@ -11,11 +11,7 @@ plt.rc('lines', lw=2)
 
 case_name = 'rheo_bond2_angle-F100-krebs-noICC-28w-ringstrain'
 case_path = f'{RES_PATH}/{case_name}'
-net = MotilityModel(
-    go_on=True, neuron_pop=92,
-    force_factor=6e-5,
-    N_callback_net=25, dt_couple=1e-3
-)
+net = PhysiolModel(go_on=True, force_factor=6e-5, neuron_pop=92, N_callback_net=25, dt_couple=1e-3)
 net.restore(filename=f'{case_path}/store/SN_0to1250000.store')
 time = net['mSN'].t / ms
 i_ECMN = 10 + 92 * 2

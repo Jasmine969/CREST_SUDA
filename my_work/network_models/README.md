@@ -8,7 +8,7 @@ This directory contains the network models for simulation.
     │	└─corrias-buist-fit-CaL.py			// Fit the SMC model
     └─S_neuron
     │	└─PLoSCB-fit.py						// Fit the S-neuron model
-    ├─Motility_Model_noICC.py				// For simulation
-    └─Motility_Model_noICC_diagnostics.py	// For postprocessing
+    ├─Physiol_Model_noICC.py				// For simulation
+    └─Physiol_Model_noICC_diagnostics.py	// For postprocessing
 ```
 

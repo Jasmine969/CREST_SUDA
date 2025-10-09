@@ -10,7 +10,7 @@ delete ICC
 """
 
 
-def MotilityModel(
+def PhysiolModel(
         go_on,
         force_factor=5e-5,
         JPalpha=90,
@@ -488,7 +488,7 @@ if __name__ == '__main__':
     dt_lmp = 2e-5 * second
     with open(f'{RES_PATH}/{case_name}/net_params.pkl', 'rb') as f:
         net_params = pickle.load(f)
-    net = MotilityModel(False, **net_params)
+    net = PhysiolModel(False, **net_params)
     net['IPAN'].DSTND = np.array([
         0.08463869, 0.08444111, 0.08244504, 0.08094176, 0.08146593,
         0.08239001, 0.08306505, 0.08092948, 0.07989938, 0.08009509,
