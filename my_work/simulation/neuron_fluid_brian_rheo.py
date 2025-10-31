@@ -62,8 +62,8 @@ assert n_muscle_each * 2 == n_sense_each
 id_sense_start = int(n_inlet + ring_sense_start * n_yz + 1)
 id_sense_end = int(n_inlet + (ring_sense_end + 1) * n_yz)
 id_wall = np.arange(n_inlet, n_inlet + n_wall) + 1
-assert id_wall[n_yz * (ring_sense_start - 1)] == id_sense_start
-assert id_wall[n_yz * ring_sense_end - 1] == id_sense_end
+assert id_wall[n_yz * ring_sense_start] == id_sense_start
+assert id_wall[n_yz * (ring_sense_end + 1) - 1] == id_sense_end
 id_wall = (n_wall * c_int)(*id_wall)
 peri0 = 2 * np.pi * r_si
 # network params
@@ -221,7 +221,7 @@ def callback(caller, step, nlocal, tag, x, fext):
         strain = np.zeros(n_ring)
     strain_flag = (strain.min() < -0.5) or (strain.max() > 0.25)
     # average the strain every two SMC for mechanosensing
-    strain_sense = strain[ring_sense_start - 1:ring_sense_end].reshape(-1, 2).mean(axis=1)
+    strain_sense = strain[ring_sense_start:ring_sense_end+1].reshape(-1, 2).mean(axis=1)
     # # obtain rhomin
     # rhomin = caller.extract_compute('rhomin', LMP_STYLE_GLOBAL, LMP_TYPE_SCALAR)
     # rhomin_flag = (rhomin < rho0) and (dmp_interval == 0 or step_local % dmp_interval == 0)
