@@ -12,7 +12,7 @@ variable    r_torus     equal ${r_catheter}*2
 variable    l_pipe_vert equal 0.004
 variable    l_pipe_hrz  equal 0.002
 variable    l_si        equal 0.04-${dL}
- # surface area of each wall particle
+# surface area of each wall particle
 variable    A0          equal 2*PI*${r_si}*${l_si}/(${n_yz}*${n_ring})
 # simulation params
 variable    cut	        equal 1.6*${dL}
@@ -23,8 +23,8 @@ variable    Ninflow     equal 10
 # variable    Dt          equal 2e-5
 # variable    mu          equal 1e-3 # dynamic viscosity
 variable    zeta        equal 0.5  # artificial viscosity
-variable    kB1         equal 0.25 # circumferential
-variable    kB2         equal 0.5 # longitudinal
+# variable    kB1         equal 0.25 # circumferential
+# variable    kB2         equal 0.5 # longitudinal
 variable    theta_eq    equal 180*(${n_yz}-2)/${n_yz}
 variable    rc_solid    equal ${dL}*1.0
 variable    wall_damp   equal 1e-4
@@ -51,11 +51,11 @@ region      drop_mol_out cylinder &
             z $(v_l_si+v_r_torus+v_l_pipe_hrz) 0 1e-20 $(v_r_torus+v_l_pipe_vert*0.7) $(v_r_torus+v_l_pipe_vert*0.88)
 # inflow bc
 # fully-developed inflow
-molecule    mymol  ${cur_path}/create_geometry/data/layer0.mol ${cur_path}/create_geometry/data/layer1.mol &
-                   ${cur_path}/create_geometry/data/layer2.mol ${cur_path}/create_geometry/data/layer3.mol &
-                   ${cur_path}/create_geometry/data/layer4.mol ${cur_path}/create_geometry/data/layer5.mol &
-                   ${cur_path}/create_geometry/data/layer6.mol ${cur_path}/create_geometry/data/layer7.mol &
-                   ${cur_path}/create_geometry/data/layer8.mol ${cur_path}/create_geometry/data/layer9.mol
+molecule    mymol  ${data_path}/layer0.mol ${data_path}/layer1.mol &
+                   ${data_path}/layer2.mol ${data_path}/layer3.mol &
+                   ${data_path}/layer4.mol ${data_path}/layer5.mol &
+                   ${data_path}/layer6.mol ${data_path}/layer7.mol &
+                   ${data_path}/layer8.mol ${data_path}/layer9.mol
 fix         in_depos fluid rheo/deposit 130000 0 ${Ninflow} 623 region drop_mol_in near ${dL} &
             vx 0 0 vy 0 0 vz 0 0 rho ${rho} status 0 mol mymol orient 0 0 1 &
             molfrac 0.13986014 0.13846154 0.13426573 0.12727273 0.11748252 0.1048951 &
@@ -124,8 +124,8 @@ fix       xforce0  wall setforce 0. NULL NULL
 # active force
 fix       F_active wall external pf/callback ${Ncallback} 1
 # balance ========================
-comm_style tiled
-fix       bl all balance 10000 1.01 rcb
+# comm_style tiled
+# fix       bl all balance 10000 1.01 rcb
 # Diagnostics ====================
 # density and pressure
 compute     rho all rheo/property/atom rho
@@ -142,9 +142,9 @@ compute     strainMin wall reduce  min c_strainAvg
 compute     strainMax wall reduce  max c_strainAvg
 # output =================================
 # global output
-thermo	      20
-thermo_style	custom step time press atoms c_rhomin c_rhomax f_in_del f_out_del f_in_depos f_out_depos
-thermo_modify	norm no
+# thermo	        20
+# thermo_style	custom step time press atoms c_rhomin c_rhomax f_in_del f_out_del f_in_depos f_out_depos f_bl
+# thermo_modify	norm no lost/bond warn
 
 # dump per-atom output (moved to neuron_fluid_get_dump.py)
 
@@ -165,4 +165,4 @@ thermo_modify	norm no
 timestep    ${Dt}
 neighbor    ${skin} bin
 restart     ${N_restart} ${case_path}/restart/*.restart
-log         ${case_path}/log_${go_on_from_step}to${end_step}.lammps
+# log         ${case_path}/log_${go_on_from_step}to${end_step}.lammps

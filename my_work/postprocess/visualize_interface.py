@@ -2,11 +2,15 @@
 Functions in this file only deal with
 the interface variables, i.e., tension (active force) and strain.
 SIPID is SMC ID here.
+
+To compute the wave, first run `compute_wave_vel`, then `wave_vel_paper`
 """
 import os.path
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+from utils.id2x import x2neuronID
 from utils.result_path import RES_PATH
 import pickle
 
@@ -109,7 +113,7 @@ def compute_wave_vel(ax=None):
     """
     Compute the wave velocity as Supplementary Note 3.
     When you first run this without wave_labels.pkl, you should use
-    LassoMultipleSelect to manually select each wave, resultingg in wave_labels.pkl.
+    LassoMultipleSelect to manually select each wave, resulting in wave_labels.pkl.
     In the next runs, you can comment LassoMultipleSelect.
     """
     from scipy.signal import convolve2d
@@ -203,7 +207,8 @@ def compute_wave_vel(ax=None):
 def extract_wall_move_vel(t, y, target_level=0.05, ringID=0):
     """
     Extract vels from target level to trough and from trough to target level
-    Only include pairs where the wave rises above target_level after the trough
+    Only include pairs where the wave rises above target_level after the trough.
+    See the legends of figure 7b-c of JRSI paper for details.
 
     :param t: time array
     :param y: amplitude array
@@ -274,7 +279,8 @@ def extract_wall_move_vel(t, y, target_level=0.05, ringID=0):
 
 
 def contraction_relaxation_vel(ax=None):
-    """Find the velocities of contraction/relaxation for each ring"""
+    """Find the velocities of contraction/relaxation for each ring.
+       See the legends of figure 7b-c of JRSI paper for details"""
     from tqdm import tqdm
 
     if ax is None:

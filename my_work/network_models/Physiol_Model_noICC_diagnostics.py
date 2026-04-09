@@ -13,13 +13,16 @@ delete ICC
 
 def PhysiolModel(
         go_on,
-        force_factor=5e-5,
-        V_half_EJP=-45, V_half_IJP=-55,
-        w_boundary1=0.2,
-        w_boundary2=0.3,
+        force_factor=1e-4,
+        epsilon_half=0.07,
+        JPalpha=90,
+        V_half_EJP=-45, V_half_IJP=-60,
+        w_boundary1=1,
+        w_boundary2=1,
         neuron_pop=146,
         N_callback_net=10,
         dt_net=1e-4, dt_couple=1e-3,
+        n_syn_inh=4, n_syn_exc=2
 ):
     defaultclock.dt = dt_net * second
     # Parameters ==================================================================
@@ -40,7 +43,7 @@ def PhysiolModel(
         E_AH=-89 * mV,
         T_on=0.07 * second, T_off=0.5 * second,
         # SAC
-        E_SAC=40 * mV, G_SAC=0.05 * uS,
+        E_SAC=40 * mV, G_SAC=0.05 * uS, epsilon_half=epsilon_half
     )
     # S-type neuron
     p_S = dict(
@@ -121,7 +124,8 @@ def PhysiolModel(
         E_IJP=-80 * mV, gmaxIJP=0.9 * uS,
         wIJP=0.01305, tauIJP1=30 * ms, tauIJP2=6 * ms,
         w_cGMP=3, tau_cGMP=100 * ms,
-        V_halfEJP=V_half_EJP, V_halfIJP=V_half_IJP
+        V_halfEJP=V_half_EJP, V_halfIJP=V_half_IJP,
+        JPalpha=JPalpha
     )
     p_SMC.update(p_global)
     p_SMC.update(dict(
@@ -171,9 +175,8 @@ def PhysiolModel(
     I_leak = G_leak*(EL-v) : amp
 
     # SAC
-    I_SAC = G_SAC/(1+exp(-(DSTND-0.07)/0.003))*(E_SAC-v)*int(DSTND>0) : amp
+    I_SAC = G_SAC/(1+exp(-(DSTND-epsilon_half)/0.003))*(E_SAC-v)*int(DSTND>0) : amp
     DSTND = distension(t,i) : 1
-    # DSTND : 1
     dv/dt = (I_Na+I_K+I_KA+I_AH+I_leak+I_SAC)/Cm : volt
     '''
     IPAN = NeuronGroup(
@@ -319,11 +322,10 @@ def PhysiolModel(
     I_IJP = gIJP*gmaxIJP*(E_IJP-v) : amp
     dgIJP/dt = ((tauIJP2/tauIJP1)**(tauIJP1/(tauIJP2-tauIJP1))*zIJP-gIJP)/tauIJP1 : 1
     dzIJP/dt = -zIJP/tauIJP2 : 1
-    EJPalpha = (90 / (1 + exp(-(v / mV - V_halfEJP))) + 10) / 100 : 1
-    IJPalpha = (90 / (1 + exp(-(v / mV - V_halfIJP))) + 10) / 100 : 1
-    # EJPalpha = 1 : 1
-    # IJPalpha = 1 : 1
-
+    EJPalpha = (JPalpha / (1 + exp(-(v / mV - V_halfEJP))) + 100 - JPalpha) / 100 : 1
+    IJPalpha = (JPalpha / (1 + exp(-(v / mV - V_halfIJP))) + 100 - JPalpha) / 100 : 1
+    allow_spike: 1
+    
     dcGMP/dt = (1-cGMP)/tau_cGMP : 1
 
     # MLCK activation =============================
@@ -412,6 +414,7 @@ def PhysiolModel(
         SMC.AM = 0.0132 * uM
         SMC.T_avg = 'T'
         SMC.cGMP = 1
+        SMC.allow_spike = 1
     SMC.run_regularly('''
         T_avg += T / N_callback_net
     ''', when='after_groups', dt=dt_net * second)
@@ -433,17 +436,17 @@ def PhysiolModel(
         delay=20 * ms, on_pre='zEPSP_post += wEPSP * w',
         namespace=p_S, name='AIN_ECMN'
     )
-    AIN_ECMN.connect(j='i-k for k in range(1,3)', skip_if_invalid=True)
+    AIN_ECMN.connect(j=f'i-k for k in range(1,{n_syn_exc+1})', skip_if_invalid=True)
 
     DIN_ICMN = Synapses(
         DIN, ICMN, 'w = exp(-(i - j) ** 2 / (2 * w_std ** 2)) : 1',
         delay=20 * ms, on_pre='zEPSP_post += wEPSP * w',
         namespace=p_S, name='DIN_ICMN'
     )
-    DIN_ICMN.connect(j='i+k for k in range(1,5)', skip_if_invalid=True)
+    DIN_ICMN.connect(j=f'i+k for k in range(1,{n_syn_inh+1})', skip_if_invalid=True)
 
     ECMN_SMC = Synapses(
-        ECMN, SMC, delay=1 * ms, on_pre='zEJP_post += wEJP*EJPalpha*w_boundary_EJP',
+        ECMN, SMC, delay=1 * ms, on_pre='zEJP_post += wEJP*EJPalpha*w_boundary_EJP*allow_spike_post',
         namespace=p_SMC, name='ECMN_SMC'
     )
     ECMN_SMC.connect(i='j//2')
@@ -488,7 +491,7 @@ def PhysiolModel(
     mSN = StateMonitor(
         SN, (
             'v',
-            # 'I_Nav13', 'I_Kdr', 'I_Kv72', 'I_leak', 'I_EPSP'
+            'I_Nav13', 'I_Kdr', 'I_Kv72', 'I_leak', 'I_EPSP'
         ),
         record=True, name='mSN', dt=monitor_dt, when='start')
     mIPAN = StateMonitor(IPAN, 'v', record=True, name='mIPAN', dt=monitor_dt, when='start')
@@ -515,7 +518,9 @@ if __name__ == '__main__':
     dt_lmp = 2e-5 * second
     with open(f'{RES_PATH}/{case_name}/net_params.pkl', 'rb') as f:
         net_params = pickle.load(f)
-    ring_sense_start = 9
+    for key, value in net_params.items():
+        print(f'{key}: {value}')
+    ring_sense_start = 8
     # net_params['w_boundary1'] = 1
     # net_params['w_boundary2'] = 1
     # net_params['EJP_alpha'] = 90
@@ -526,7 +531,7 @@ if __name__ == '__main__':
     # net_params['V_half_IJP'] = -60
     net = PhysiolModel(False, **net_params)
     st = np.load(f'{RES_PATH}/{case_name}/interface/strain_tension_{read_step}.npz')
-    strain = st['strain'][:, (ring_sense_start - 1):-(ring_sense_start - 1)].reshape(25000, 92, 2).mean(axis=-1)
+    strain = st['strain'][:, ring_sense_start:-ring_sense_start].reshape(25000, 92, 2).mean(axis=-1)
     distension = TimedArray(strain[int(go_on_from_step / N_callback_lmp):], dt=1 * ms)
     print(distension.values.shape)
     # distension = TimedArray(np.tile(st['strain'][0], (4000, 1)), dt=1 * ms)

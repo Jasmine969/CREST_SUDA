@@ -1,8 +1,8 @@
-from brian2 import *
+from brian2.only import *
 from brian2 import codegen
 from socket import gethostname
 
-if gethostname() == 'gpu-server':
+if gethostname() in ['gpu-server', 'mu02'] or 'cu1' in gethostname():
     codegen.cpp_prefs._compiler_supports_c99 = True
 BrianLogger.suppress_hierarchy('brian2.codegen.generators.base')
 """
@@ -12,15 +12,16 @@ delete ICC
 
 def PhysiolModel(
         go_on,
-        force_factor=5e-5,
+        force_factor=1e-4,
+        epsilon_half=0.07,
         JPalpha=90,
-        V_half_EJP=-45, V_half_IJP=-55,
-        w_boundary1=0.2,
-        w_boundary2=0.3,
+        V_half_EJP=-45, V_half_IJP=-60,
+        w_boundary1=1,
+        w_boundary2=1,
         neuron_pop=146,
         N_callback_net=10,
         dt_net=1e-4, dt_couple=1e-3,
-        G_SAC=0.05 * uS
+        n_syn_inh=4, n_syn_exc=2
 ):
     defaultclock.dt = dt_net * second
     # Parameters ==================================================================
@@ -41,7 +42,7 @@ def PhysiolModel(
         E_AH=-89 * mV,
         T_on=0.07 * second, T_off=0.5 * second,
         # SAC
-        E_SAC=40 * mV, G_SAC=0.05 * uS,
+        E_SAC=40 * mV, G_SAC=0.05 * uS, epsilon_half=epsilon_half
     )
     # S-type neuron
     p_S = dict(
@@ -173,7 +174,7 @@ def PhysiolModel(
     I_leak = G_leak*(EL-v) : amp
 
     # SAC
-    I_SAC = G_SAC/(1+exp(-(DSTND-0.07)/0.003))*(E_SAC-v)*int(DSTND>0) : amp
+    I_SAC = G_SAC/(1+exp(-(DSTND-epsilon_half)/0.003))*(E_SAC-v)*int(DSTND>0) : amp
     DSTND : 1
     dv/dt = (I_Na+I_K+I_KA+I_AH+I_leak+I_SAC)/Cm : volt
     '''
@@ -234,7 +235,7 @@ def PhysiolModel(
     dgEPSP/dt = ((tauEPSP2/tauEPSP1)**(tauEPSP1/(tauEPSP2-tauEPSP1))*zEPSP-gEPSP)/tauEPSP1 : 1
     dzEPSP/dt = -zEPSP/tauEPSP2 : 1
     dv/dt = (I_Nav13+I_Kdr+I_Kv72+I_leak+I_EPSP)/Cm : volt
-    
+
     du_NO/dt = -u_NO/(10*ms)       : 1
     dx_NO/dt = (1 - x_NO)/(100*ms) : 1
     '''
@@ -322,8 +323,7 @@ def PhysiolModel(
     dzIJP/dt = -zIJP/tauIJP2 : 1
     EJPalpha = (JPalpha / (1 + exp(-(v / mV - V_halfEJP))) + 100 - JPalpha) / 100 : 1
     IJPalpha = (JPalpha / (1 + exp(-(v / mV - V_halfIJP))) + 100 - JPalpha) / 100 : 1
-    # EJPalpha = 1 : 1
-    # IJPalpha = 1 : 1
+    allow_spike: 1
     
     dcGMP/dt = (1-cGMP)/tau_cGMP : 1
 
@@ -413,6 +413,7 @@ def PhysiolModel(
         SMC.AM = 0.0132 * uM
         SMC.T_avg = 'T'
         SMC.cGMP = 1
+        SMC.allow_spike = 1
     SMC.run_regularly('''
         T_avg += T / N_callback_net
     ''', when='after_groups', dt=dt_net * second)
@@ -434,17 +435,17 @@ def PhysiolModel(
         delay=20 * ms, on_pre='zEPSP_post += wEPSP * w',
         namespace=p_S, name='AIN_ECMN'
     )
-    AIN_ECMN.connect(j='i-k for k in range(1,3)', skip_if_invalid=True)
+    AIN_ECMN.connect(j=f'i-k for k in range(1,{n_syn_exc+1})', skip_if_invalid=True)
 
     DIN_ICMN = Synapses(
         DIN, ICMN, 'w = exp(-(i - j) ** 2 / (2 * w_std ** 2)) : 1',
         delay=20 * ms, on_pre='zEPSP_post += wEPSP * w',
         namespace=p_S, name='DIN_ICMN'
     )
-    DIN_ICMN.connect(j='i+k for k in range(1,5)', skip_if_invalid=True)
+    DIN_ICMN.connect(j=f'i+k for k in range(1,{n_syn_inh+1})', skip_if_invalid=True)
 
     ECMN_SMC = Synapses(
-        ECMN, SMC, delay=1 * ms, on_pre='zEJP_post += wEJP*EJPalpha*w_boundary_EJP',
+        ECMN, SMC, delay=1 * ms, on_pre='zEJP_post += wEJP*EJPalpha*w_boundary_EJP*allow_spike_post',
         namespace=p_SMC, name='ECMN_SMC'
     )
     ECMN_SMC.connect(i='j//2')
@@ -476,37 +477,23 @@ def PhysiolModel(
         ECMN_SMC,
         ICMN_SMC
     )
+
     return network
 
 
 if __name__ == '__main__':
     # pass
+    from pathlib import Path
+    import os
+    import sys
+    root_path = Path(os.getenv('MY_WORK')).parent
+    sys.path.append(str(root_path))
     import pickle
     from utils.result_path import RES_PATH
+    import brian2.numpy_ as np
 
-    case_name = 'rheo_bond2_angle-krebs-noICC-12w-GSAC0.045'
+    case_name = 'rheo_bond2_angle-F100-krebs-noICC-28w-ringstrain-wave6s'
     dt_lmp = 2e-5 * second
     with open(f'{RES_PATH}/{case_name}/net_params.pkl', 'rb') as f:
         net_params = pickle.load(f)
-    net = PhysiolModel(False, **net_params)
-    net['IPAN'].DSTND = np.array([
-        0.08463869, 0.08444111, 0.08244504, 0.08094176, 0.08146593,
-        0.08239001, 0.08306505, 0.08092948, 0.07989938, 0.08009509,
-        0.07951657, 0.08025125, 0.07961669, 0.07906211, 0.07790916,
-        0.07710773, 0.07716535, 0.07653147, 0.07660019, 0.07676818,
-        0.07797668, 0.07874418, 0.07731155, 0.07784684, 0.07760417,
-        0.07522806, 0.07396449, 0.07464097, 0.07658931, 0.07611858,
-        0.0767202, 0.07785969, 0.07880499, 0.0777724, 0.07656373,
-        0.07545012, 0.07510855, 0.07687499, 0.07835826, 0.07915963,
-        0.07862207, 0.07690246, 0.07708889, 0.07837281, 0.07918443,
-        0.08020594, 0.07973458, 0.07645202, 0.07441546, 0.0734678,
-        0.07554157, 0.07607196, 0.07695772, 0.07742815, 0.07580618,
-        0.07415781, 0.07469532, 0.07475758, 0.07427029, 0.07375799,
-        0.07342189, 0.07358996, 0.07533653, 0.07439401, 0.07471861,
-        0.07585073, 0.07755861, 0.07869137, 0.07963203, 0.07967509,
-        0.08032507, 0.08109745, 0.08076925, 0.0806353, 0.08016201,
-        0.08089542, 0.0810927, 0.08008149, 0.08074003, 0.07979609,
-        0.07952207, 0.08020466, 0.08125742, 0.08296072, 0.08227186,
-        0.08201795, 0.08380876, 0.08515391, 0.08516054, 0.08578428,
-        0.08742492, 0.08899308])
-    net.run(100 * ms)
+    net = PhysiolModel(False)

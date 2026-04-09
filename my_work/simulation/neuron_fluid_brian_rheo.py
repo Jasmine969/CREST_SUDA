@@ -1,22 +1,24 @@
 import os
+import pickle
 import sys
+from pathlib import Path
 from socket import gethostname
+from time import time, asctime
+from warnings import warn
 
 import yaml
-from warnings import warn
-import pickle
-from mpi4py import MPI
-from lammps import (lammps, LMP_VAR_EQUAL, LMP_ERROR_ALL,
-                    LMP_STYLE_GLOBAL, LMP_TYPE_ARRAY, c_int)
 from brian2 import numpy_ as np
 from brian2.units import second, mV
-from time import time, asctime
-from pathlib import Path
+from lammps import (lammps, LMP_VAR_EQUAL, LMP_ERROR_ALL,
+                    LMP_STYLE_GLOBAL, LMP_TYPE_ARRAY, c_int)
+from mpi4py import MPI
 
 root_path = Path(os.getenv('MY_WORK')).parent
 sys.path.append(str(root_path))
 from my_work.network_models.Physiol_Model_noICC import PhysiolModel
-from utils.utils import format_time
+#from my_work.network_models.Physiol_Model_noICC_old import PhysiolModel
+from utils.utils_misc import format_time
+from utils.safefy import check_and_create_lock
 
 comm = MPI.COMM_WORLD
 me = comm.Get_rank()
@@ -39,14 +41,15 @@ if me == 0:
 p_global = comm.bcast(p_global, root=0)
 assert case_name == p_global['case_name']
 dt_lmp = p_global['dt_lmp']
-# save restart and state files every this many time_step
+# save restart and state files every this time_step
 save_interval = p_global['save_interval']
 dmp_interval = p_global['dmp_interval']
-# log params
+# display params
 mylog_interval = p_global['mylog_interval']
 # couple params
 force_factor = p_global['force_factor']
 N_callback_lmp = p_global['N_callback_lmp']
+wave_interval_min = p_global['wave_interval_min']
 # assert dmp_interval % N_callback_lmp == 0
 dt_couple = dt_lmp * N_callback_lmp
 N_callback_net = int(dt_couple / dt_net)
@@ -72,39 +75,49 @@ if me == 0:
     net_params = {
         'neuron_pop': n_sense,
         'force_factor': force_factor,
+        'epsilon_half': p_global['DSTNDhalf'],
         'JPalpha': p_global['JPalpha'],
         'V_half_EJP': p_global['V_half_EJP'],
         'V_half_IJP': p_global['V_half_IJP'],
         'w_boundary1': p_global['w_boundary1'],
         'w_boundary2': p_global['w_boundary2'],
-        # 'G_SAC': p_global['G_SAC'],
         'N_callback_net': N_callback_net,
         'dt_couple': dt_couple,
         'dt_net': dt_net,
+        'n_syn_inh': p_global['n_syn_inh'],
+        'n_syn_exc': p_global['n_syn_exc']
     }
 
 # go_on_from_step==0 if ab initio
 go_on_from_step = p_global['go_on_from_step']
 n_step = p_global['n_step']
 end_step = go_on_from_step + n_step
-if me == 0:
-    for directory in ['restart', 'state', 'interface']:
-        os.makedirs(f'{case_path}/{directory}', exist_ok=True)
-    print('See my.log')
-    with open(f'{case_path}/my{go_on_from_step}_to{end_step}.log', 'w') as f:
-        print(f'case: {case_name}\nRunning on {gethostname()}'
-              f'\n{asctime()}\n\n', file=f)
 if me == 0 and n_step // save_interval > 200:
     warn('There will be over 200 result files.'
          ' Change save_interval or continue? (y/n)\n')
     if_continue = input()
     if if_continue.lower() in ['n', 'no', 'false']:
         raise Exception
+if me == 0:
+    # restart: lammps, state: brian2, interface: strain + tension,
+    # restart_params: state scalars like t_since_activated
+    for directory in ['restart', 'state', 'interface', 'restart_params']:
+        os.makedirs(f'{case_path}/{directory}', exist_ok=True)
+    check_and_create_lock(case_path, case_name)
+comm.Barrier()
+if me == 0:
+    print('See my.log')
+    with open(f'{case_path}/my{go_on_from_step}_to{end_step}.log', 'w') as f:
+        print(f'case: {case_name}\nRunning on {gethostname()}'
+              f'\n{asctime()}\n\n', file=f)
+
 # multiphysics
-lmp = lammps(cmdargs=['-screen', 'none'])
+lmp = lammps(cmdargs=[
+    '-screen', 'none',
+    '-log', f'{case_path}/log_{go_on_from_step}to{end_step}.lammps']
+)
 # lmp = lammps()
 lmp.commands_string(f"""
-log      {case_path}/log_{go_on_from_step}to{end_step}.lammps
 variable case_path string {case_path}
 variable case_name string {case_name}
 variable dmp_interval equal {dmp_interval}
@@ -121,9 +134,14 @@ variable kB2  equal {p_global['kB_long']}
 variable kA equal {p_global['kA']}
 variable Dt equal {dt_lmp}
 """)
+
 lmp.file('head-rheo.in')
-if comm.size > 1 and not p_global['balance']:
-    lmp.command('processors * 2 1')
+balance = p_global['balance']
+assert balance in ['rcb', 'shift', False]
+if comm.size == 1:
+    balance = False
+if not balance:
+    lmp.command('processors * 1 1')
 # neurons
 net = None
 if me == 0:
@@ -131,9 +149,15 @@ if me == 0:
 if go_on_from_step:
     lmp.command(f'read_restart {case_path}/restart/{go_on_from_step}.restart')
     if me == 0:
+        """
+        I use get_states/set_states instead of store/restore here, because the former
+        is more flexible; also, the file output by `store` in the MPI environment on the server 
+        cannot be read successfully on my Windows 10 PC. See the following link for details:
+        https://brian.discourse.group/t/synapses-cannot-be-simulated-after-using-set-states/1475/3
+        """
         with open(f'{case_path}/state/net_{go_on_from_step}.pkl', 'rb') as pf_state:
             states = pickle.load(pf_state)
-            # must reset lastspike so that IPAN will not be refractory
+            # must reset lastspike so that IPAN will not be refractory, see the above link for details
             for objects in states.values():
                 for k, val in objects.items():
                     if k.startswith("lastspike"):
@@ -141,14 +165,22 @@ if go_on_from_step:
             net.set_states(states)
     st = np.load(f'{case_path}/interface/strain_tension_{go_on_from_step}.npz')
     strains = list(st['strain'])
+    strain0 = strains[-1][ring_sense_start:ring_sense_start + n_sense_each].mean()
+    allow_spikes = list(st['allow_spikes'])
     tensions = list(st['tension'])
+    with open(f'{case_path}/restart_params/state_scalars_{go_on_from_step}.yml', 'r') as ymf:
+        state_scalars = yaml.safe_load(ymf)
+        t_since_activated = state_scalars['t_since_activated']
 else:
     lmp.commands_string(f"""
-    read_restart   ../create_geometry/data/{p_global['restart_file']}
+    read_restart ../create_geometry/data/{p_global['restart_file']}
     reset_timestep 0
     """)
     strains = []
+    strain0 = 0
     tensions = []
+    allow_spikes = []
+    t_since_activated = 100  # second
     if me == 0:
         with open(f'{case_path}/net_params.pkl', 'wb') as pf_net:
             pickle.dump(net_params, pf_net)
@@ -166,14 +198,14 @@ if dmp_interval:
         dump	my_dump all custom ${dmp_interval} &
                 ${case_path}/${go_on_from_step}to${end_step}.dump &
                 id type x y z vx vy vz fx fy fz mass c_p c_rho c_strainAvg v_ringID_paper &
-                v_Fy_bath v_Fz_bath v_FRy v_FRz f_F_active[2] f_F_active[3] c_visc
+                v_Fy_bath v_Fz_bath v_FRy v_FRz f_F_active[2] f_F_active[3] c_visc proc
         """)
     else:
         lmp.commands_string("""
         dump	my_dump all custom ${dmp_interval} &
                 ${case_path}/${go_on_from_step}to${end_step}.dump &
                 id type x y z vx vy vz fx fy fz mass c_p c_rho c_strainAvg v_ringID_paper &
-                v_Fy_bath v_Fz_bath v_FRy v_FRz f_F_active[2] f_F_active[3]
+                v_Fy_bath v_Fz_bath v_FRy v_FRz f_F_active[2] f_F_active[3] proc
         """)
     lmp.commands_string("""
     # variable tDump equal stride(536200,539750,50)
@@ -185,6 +217,9 @@ interact_comp_time = None
 t0 = None
 rhomin_flag = 0
 rhomin = 1000
+# control wave interval
+strain0_prev = 0
+rest0 = False if strain0 < 0 else True
 if me == 0:
     net_comp_time = 0.
     interact_comp_time = 0.
@@ -192,7 +227,8 @@ if me == 0:
 
 
 def callback(caller, step, nlocal, tag, x, fext):
-    global net_comp_time, interact_comp_time, rhomin_flag, rhomin
+    global net_comp_time, interact_comp_time, rhomin_flag, rhomin, \
+        strain0, strain0_prev, rest0, t_since_activated
     # rhomin < rho0 implies fluid particles penetrate out of the wall, should quit
     # if rhomin_flag:
     #     warn(f'rhomin={rhomin:.2f}. Fluid particles are likely to penetrate out of the wall!')
@@ -219,9 +255,9 @@ def callback(caller, step, nlocal, tag, x, fext):
         strain = strains[-1]
     else:
         strain = np.zeros(n_ring)
-    strain_flag = (strain.min() < -0.5) or (strain.max() > 0.25)
+    strain_flag = (strain.min() < -0.5) or (strain.max() > 0.3)
     # average the strain every two SMC for mechanosensing
-    strain_sense = strain[ring_sense_start:ring_sense_end+1].reshape(-1, 2).mean(axis=1)
+    strain_sense = strain[ring_sense_start:ring_sense_end + 1].reshape(-1, n_sense_each).mean(axis=1)
     # # obtain rhomin
     # rhomin = caller.extract_compute('rhomin', LMP_STYLE_GLOBAL, LMP_TYPE_SCALAR)
     # rhomin_flag = (rhomin < rho0) and (dmp_interval == 0 or step_local % dmp_interval == 0)
@@ -236,11 +272,26 @@ def callback(caller, step, nlocal, tag, x, fext):
                           f"{strain_head}\n"
                           f"{strain_display}\n")
         if step_local > 0:  # LAMMPS's pre-run won't lead to Brian2 running
-            # update distension and run brian2
+            # determine allow_spike
+            strain0_prev = strain0
+            strain0 = strain_sense[0]
+            if strain0 < 0 and strain0 < strain0_prev and rest0:
+                rest0 = False
+                t_since_activated = 0
+            elif strain0 > 0.04 and strain0 > strain0_prev and not rest0:
+                rest0 = True
+            allow_spike = np.ones(ring_sense_end - ring_sense_start + 1)
+            left_wave_ringIDs = np.argwhere(strain[ring_sense_start:ring_sense_end + 1] <= 0)
+            if left_wave_ringIDs.size:
+                left_wave_ringID = left_wave_ringIDs[0].item()
+                allow_spike[:left_wave_ringID] = int(t_since_activated > wave_interval_min)
+            allow_spikes.append(allow_spike)
             t_net0 = time()
             if (strain_sense != 0).any():
                 net['IPAN'].DSTND = strain_sense
+            net['SMC'].allow_spike = allow_spike
             net.run(dt_couple * second)
+            t_since_activated += dt_couple
             tensions.append(np.array(net['SMC'].T_avg))
             net_comp_time_step = time() - t_net0
             net_comp_time += net_comp_time_step
@@ -248,7 +299,10 @@ def callback(caller, step, nlocal, tag, x, fext):
             with open(f'{case_path}/state/net_{step}.pkl', 'wb') as pf:
                 pickle.dump(net.get_states(read_only_variables=False), pf)
             np.savez(f'{case_path}/interface/strain_tension_{step}.npz',
-                     strain=np.array(strains), tension=np.array(tensions))
+                     strain=np.array(strains), tension=np.array(tensions),
+                     allow_spikes=np.array(allow_spikes))
+            with open(f'{case_path}/restart_params/state_scalars_{step}.yml', 'w') as ymf:
+                yaml.safe_dump({'t_since_activated': t_since_activated}, ymf)
         f_mag = np.repeat(net['SMC'].T_avg, n_muscle_each)
         # debug mode ===============
         # f_mag = np.zeros(184)
@@ -268,10 +322,20 @@ def callback(caller, step, nlocal, tag, x, fext):
         fs = [f_all[tag] for tag in tags]
 
         if mylog_flag:
+            if allow_spikes:
+                allow_spike = allow_spikes[-1]
+                if allow_spike.all():
+                    allow_info = 'All true'
+                else:
+                    allow_info = f'0-{int(np.sum(1 - allow_spike) - 1)} false'
+            else:
+                allow_info = 'None'
             step_info = (f"Step (curr -- total): "
                          f"{step_local}/{n_step} -- {step}/{end_step}"
                          f"\n{'=' * 30}")
-            tension_id = list(range(0, n_sense * 2, 2))
+            value_info = (f'Time since last activation is {t_since_activated: .3f} second\n'
+                          f'rest[0]: {bool(rest0)}, allow_spikes: {allow_info}\n') + value_info
+            tension_id = list(range(0, n_sense * n_sense_each, n_sense_each))
             tension_head = '\t\t'.join(str(i) for i in tension_id)
             tension_display = '\t'.join(f'{i:<4.1f}' for i in f_mag[tension_id] * 1e6)
             vSMC = np.repeat(net['SMC'].v / mV, n_muscle_each)
@@ -280,7 +344,7 @@ def callback(caller, step, nlocal, tag, x, fext):
                 f"{tension_head}\n"
                 f"vSMC_max/mV\t\t{(net['SMC'].v / mV).argmax()}\t{(net['SMC'].v / mV).max():.1f}\n"
                 f"{vSMC_display}\n"
-                f"tension_max (uN)\t\t{f_mag.argmax()}\t{f_mag.max() * 1e6:.1f}\n"
+                f"tension_max/uN\t\t{f_mag.argmax()}\t{f_mag.max() * 1e6:.1f}\n"
                 f"{tension_display}\n"
             )
             interact_comp_time += time() - t0_step - net_comp_time_step
@@ -301,7 +365,7 @@ def callback(caller, step, nlocal, tag, x, fext):
                          f'Mechanics: {rate_lmp:.1f}\t'
                          f'Network: {rate_net:.1f}')
             with open(f'{case_path}/my{go_on_from_step}_to{end_step}.log', 'a') as f:
-                print(f'{step_info}\n{value_info}\n{time_info}\n\n', file=f)
+                print(f'{step_info}\n{value_info}\n{time_info}\n\n', file=f, flush=True)
     if strain_flag:
         warn('The strain is too negative/positive!')
         caller.error(LMP_ERROR_ALL, 'The strain is too negative/positive!')
@@ -310,15 +374,26 @@ def callback(caller, step, nlocal, tag, x, fext):
 
 
 lmp.set_fix_external_callback('F_active', callback, lmp)
-if comm.size > 1 and p_global['balance']:
+if balance == 'rcb':
     lmp.commands_string("""
-        comm_style tiled
-        fix bl all balance 100000 1.01 rcb
+    comm_style tiled
+    fix bl all balance 100000 1.01 rcb
     """)
+elif balance == 'shift':
+    lmp.command('fix bl all balance 100000 1.01 shift x 20 1.01')
+else:
+    lmp.command('fix bl all balance 100000 1.01 report')
+lmp.commands_string("""
+thermo	        20
+thermo_style	custom step time press atoms c_rhomin c_rhomax &
+                f_in_del f_out_del f_in_depos f_out_depos f_bl[3] f_bl
+thermo_modify	norm no lost/bond warn
+""")
 lmp.command(f"run {n_step}")
 lmp.command(f'write_restart {case_path}/restart/*.restart')
 if me == 0:
     with open(f'{case_path}/state/net_{end_step}.pkl', 'wb') as pf:
         pickle.dump(net.get_states(read_only_variables=False), pf)
     np.savez(f'{case_path}/interface/strain_tension_{end_step}.npz',
-             strain=np.array(strains), tension=np.array(tensions))
+             strain=np.array(strains), tension=np.array(tensions),
+             allow_spikes=np.array(allow_spikes))
