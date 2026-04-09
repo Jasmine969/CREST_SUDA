@@ -1,6 +1,6 @@
 # CREST_SUDA
 Source code of the paper: 
-**Zhu, Hong**, Woo, Meng Wai, Chen, Xiao Dong & Xiao, Jie. Closed-loop control of the small intestinal transport within an integrated mechano-physiological framework. *J. R. Soc. Interface*. 2026. 10.1098/rsif.2025.1155
+**Hong Zhu**, Meng Wai Woo, Xiao Dong Chen & Jie Xiao. Closed-loop control of the small intestinal transport within an integrated mechano-physiological framework. *J. R. Soc. Interface*. 2026. 10.1098/rsif.2025.1155
 
 # Structure
 
