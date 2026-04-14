@@ -1,5 +1,10 @@
 # CREST_SUDA
-Source code of the paper (in press): 
+
+The small intestine propels contents forward via peristalsis, which is controlled by a closed-loop system: a contraction upstream pushes the contents downstream and stretches the wall ahead; stretch-sensing nerves detect this signal and correspondingly regulate muscle activity, shaping the next wave.
+
+We built a computational framework, CREST, that implements this feedback loop under neural control. Peristaltic waves could be produced with velocities and strengths matching experimental data. We also numerically discovered that the peristaltic wave could travel in a series of leaps. In addition to understanding normal intestinal functions, CREST can potentially help researchers test mechanistic hypotheses about motility disorders.
+
+This repository provides the source code of the paper (in press): 
 **Hong Zhu**, Meng Wai Woo, Xiao Dong Chen & Jie Xiao. Closed-loop control of the small intestinal transport within an integrated mechano-physiological framework. *J. R. Soc. Interface*. 2026. 10.1098/rsif.2025.1155
 
 # Structure
