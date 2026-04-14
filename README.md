@@ -4,6 +4,9 @@ The small intestine propels contents forward via peristalsis, which is controlle
 
 We built a computational framework, CREST, that implements this feedback loop under neural control. Peristaltic waves could be produced with velocities and strengths matching experimental data. We also numerically discovered that the peristaltic wave could travel in a series of leaps. In addition to understanding normal intestinal functions, CREST can potentially help researchers test mechanistic hypotheses about motility disorders.
 
+<img width="4452" height="4365" alt="模型框架 - neurogenic" src="https://github.com/user-attachments/assets/2ff8010f-5fce-4707-afda-c5fe05b53c48" />
+
+
 This repository provides the source code of the paper (in press): 
 **Hong Zhu**, Meng Wai Woo, Xiao Dong Chen & Jie Xiao. Closed-loop control of the small intestinal transport within an integrated mechano-physiological framework. *J. R. Soc. Interface*. 2026. 10.1098/rsif.2025.1155
 
