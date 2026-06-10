@@ -7,7 +7,7 @@ We built a computational framework, CREST, that implements this feedback loop un
 <img width="4452" height="4365" alt="模型框架 - neurogenic" src="https://github.com/user-attachments/assets/2ff8010f-5fce-4707-afda-c5fe05b53c48" />
 
 
-This repository provides the source code of the paper (in press): 
+This repository provides the source code of the paper: 
 Zhu H, Woo MW, Chen XD, Xiao J. 2026 Closed-loop control of the small intestinal transport within an integrated mechano-physiological framework. *J. R. Soc. Interface* **23**: 20251155. https://doi.org/10.1098/rsif.2025.1155
 
 # Structure
