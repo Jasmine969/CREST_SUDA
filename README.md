@@ -8,7 +8,7 @@ We built a computational framework, CREST, that implements this feedback loop un
 
 
 This repository provides the source code of the paper (in press): 
-**Hong Zhu**, Meng Wai Woo, Xiao Dong Chen & Jie Xiao. Closed-loop control of the small intestinal transport within an integrated mechano-physiological framework. *J. R. Soc. Interface*. 2026. 10.1098/rsif.2025.1155
+Zhu H, Woo MW, Chen XD, Xiao J. 2026 Closed-loop control of the small intestinal transport within an integrated mechano-physiological framework. *J. R. Soc. Interface* **23**: 20251155. https://doi.org/10.1098/rsif.2025.1155
 
 # Structure
 
